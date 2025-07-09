@@ -26,9 +26,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settings = Settings::new()?;
     
     // Clone the db_path to avoid moving settings
-    let db_path = settings.maxmind.db_path.clone();
-    
-    // Initialize MaxMind DB reader
+    let db_path = settings.resolve_db_path().unwrap_or_else(|e| {
+        panic!("Failed to resolve database path: {}", e);
+    });
     let reader = maxminddb::Reader::open_readfile(db_path)?;
     
     // Create application state

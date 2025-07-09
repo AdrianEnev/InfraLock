@@ -87,7 +87,6 @@ mod tests {
     use axum::extract::ConnectInfo;
     use std::net::SocketAddr;
     use std::str::FromStr;
-    use maxminddb::geoip2;
 
     // Test health_check handler
     #[tokio::test]

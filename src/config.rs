@@ -20,16 +20,10 @@ pub struct MaxmindSettings {
 
 impl Settings {
     pub fn new() -> Result<Self, config::ConfigError> {
-        let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-        let config_dir = base_path.join("config");
-
-        // Initialize our configuration reader
         let settings = config::Config::builder()
-            // Add default settings
             .set_default("server.host", "0.0.0.0")?
             .set_default("server.port", 3000)?
             .set_default("maxmind.db_path", "data/GeoLite2-City.mmdb")?
-            // Add configuration from environment variables with prefix "GEO_"
             .add_source(
                 config::Environment::with_prefix("GEO")
                     .prefix_separator("__")
@@ -37,7 +31,6 @@ impl Settings {
             )
             .build()?;
 
-        // Convert the configuration values into our Settings type
         settings.try_deserialize()
     }
 
@@ -45,5 +38,14 @@ impl Settings {
         format!("{}:{}", self.server.host, self.server.port)
             .parse()
             .expect("Failed to parse server address")
+    }
+
+    pub fn resolve_db_path(&self) -> std::io::Result<PathBuf> {
+        if self.maxmind.db_path.is_absolute() {
+            Ok(self.maxmind.db_path.clone())
+        } else {
+            let base_path = std::env::current_dir()?;
+            Ok(base_path.join(&self.maxmind.db_path))
+        }
     }
 }
