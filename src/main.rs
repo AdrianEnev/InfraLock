@@ -1,17 +1,56 @@
-use crate::utils::retreive_ip;
+use std::sync::Arc;
+use tokio::net::TcpListener;
+use tokio::sync::RwLock;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-mod utils;
+mod config;
+mod error;
+mod handlers;
+mod routes;
 mod types;
 
-fn main() {
-    let ip = "8.8.8.8";
+use crate::{
+    config::Settings,
+    handlers::AppState,
+    routes::create_router,
+};
 
-    let ip_addr = ip.parse::<std::net::IpAddr>()
-        .expect("Invalid IP address format");
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize tracing
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    // Load configuration
+    let settings = Settings::new()?;
     
-    let geo_info = retreive_ip::retreive_ip(ip_addr);
+    // Clone the db_path to avoid moving settings
+    let db_path = settings.maxmind.db_path.clone();
+    
+    // Initialize MaxMind DB reader
+    let reader = maxminddb::Reader::open_readfile(db_path)?;
+    
+    // Create application state
+    let state = AppState { 
+        maxmind_reader: Arc::new(RwLock::new(reader)) 
+    };
 
-    println!("City: {:?}", geo_info.city);
-    println!("Country: {:?}", geo_info.country);
-    println!("Location: {:?}", geo_info.location);
+    // Create router
+    let app = create_router(state);
+
+    // Run the server
+    let addr = settings.server_addr();
+    let listener = TcpListener::bind(addr).await?;
+    
+    tracing::info!("listening on {}", addr);
+    
+    // Use into_make_service_with_connect_info to enable ConnectInfo
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
+
+    Ok(())
 }
