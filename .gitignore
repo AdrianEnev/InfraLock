@@ -1,0 +1,13 @@
+/target
+
+# Environmental variables
+.env
+
+# GeoIP config
+config/GeoIP.conf
+
+# Ignore ip database
+data/GeoLite2-City.mmdb
+
+# OS variables
+.DS_Store

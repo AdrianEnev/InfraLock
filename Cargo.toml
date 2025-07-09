@@ -1,0 +1,8 @@
+[package]
+name = "geolocation"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+maxminddb = "0.26"
+serde = { version = "1", features = ["derive"] }
