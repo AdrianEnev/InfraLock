@@ -7,6 +7,9 @@ config/GeoIP.conf
 # MaxMind database
 data/GeoLite2-City.mmdb
 
+# VPN database
+data/vpns/ipv4.txt
+
 # Cargo specific
 Cargo.lock
 
