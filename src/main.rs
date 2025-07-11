@@ -8,6 +8,7 @@ mod error;
 mod handlers;
 mod routes;
 mod types;
+mod vpn_detection;
 
 use crate::{
     config::Settings,
