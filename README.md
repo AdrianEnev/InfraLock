@@ -5,6 +5,8 @@ A high-performance geolocation API service built with Rust and Axum, using the M
 ## Features
 
 - Fast IP geolocation lookups
+- VPN and datacenter IP detection
+- Support for both single IP and CIDR range checks
 - RESTful API endpoints with JSON responses
 - Built with async/await for high concurrency
 - Structured logging with `tracing`
@@ -19,6 +21,7 @@ A high-performance geolocation API service built with Rust and Axum, using the M
 
 - Rust (latest stable version)
 - MaxMind GeoLite2 City database (MMDB format)
+- VPN/Datacenter IP database (text file with CIDR ranges)
 
 ### Installation
 
@@ -46,6 +49,7 @@ Configuration can be provided via environment variables. The following variables
 - `GEO_SERVER__HOST`: Server host (default: `0.0.0.0`)
 - `GEO_SERVER__PORT`: Server port (default: `3000`)
 - `GEO_MAXMIND__DB_PATH`: Path to the MaxMind database file (default: `data/GeoLite2-City.mmdb`)
+- `GEO_VPN_DETECTOR__DB_PATH`: Path to the VPN/Datacenter IP database file (default: `data/vpn_networks.txt`)
 - `RUST_LOG`: Logging level (default: `geolocation=info,tower_http=info`)
 
 ## Running the Server
@@ -57,6 +61,7 @@ cargo run --release
 # Or with custom configuration
 GEO_SERVER__PORT=8080 \
 GEO_MAXMIND__DB_PATH=/path/to/GeoLite2-City.mmdb \
+GEO_VPN_DETECTOR__DB_PATH=/path/to/vpn_networks.txt \
 cargo run --release
 ```
 
@@ -98,6 +103,7 @@ GET /api/lookup/8.8.8.8
 ```json
 {
   "ip": "8.8.8.8",
+  "is_vpn_or_datacenter": true,
   "geo_info": {
     "city": {
       "names": {
@@ -134,6 +140,7 @@ GET /api/lookup/self
 ```json
 {
   "ip": "192.168.1.1",
+  "is_vpn_or_datacenter": false,
   "geo_info": {
     "city": {
       "names": {
@@ -152,6 +159,19 @@ GET /api/lookup/self
   }
 }
 ```
+
+### 4. VPN/Datacenter Check
+
+Check if an IP or CIDR range is associated with a VPN or datacenter.
+
+GET /api/vpn_datacentre/{ip_or_range}
+
+**Parameters:**
+
+- `ip_or_range`: IP address or CIDR range to check
+
+**Example Requests:**
+
 
 ## Error Responses
 
@@ -191,7 +211,20 @@ curl http://localhost:3000/api/lookup/8.8.8.8
 
 # Self lookup
 curl http://localhost:3000/api/lookup/self
+
+# VPN/Datacenter check
+curl http://localhost:3000/api/vpn_datacentre/1.2.3.4
 ```
+
+Deployment
+Building for Production
+cargo build --release
+
+Running with Environment Variables
+GEO_MAXMIND__DB_PATH=/path/to/GeoLite2-City.mmdb \
+GEO_VPN_DETECTOR__DB_PATH=/path/to/vpn_networks.txt \
+RUST_LOG=info \
+./target/release/geolocation
 
 ### Integration Tests
 
@@ -205,8 +238,9 @@ cargo test --test integration
 
 The service is built with performance in mind:
 - Asynchronous I/O with Tokio
-- Thread-safe state management with `Arc` and `RwLock`
+- Thread-safe state management with Arc and RwLock
 - Efficient memory usage with zero-copy deserialization
+- Optimized IP range lookups for VPN/datacenter detection
 
 ## License
 
@@ -217,3 +251,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [MaxMind](https://www.maxmind.com/) for the GeoIP2 database
 - [Axum](https://github.com/tokio-rs/axum) for the web framework
 - [Tokio](https://tokio.rs/) for async runtime
+- [ipnetwork](https://crates.io/crates/ipnetwork) for IP network handling

@@ -8,8 +8,9 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::{error::AppError};
+use crate::{error::AppError, vpn_detection::VpnDetector};
 use crate::types::location_types::GeoInfo;
+use percent_encoding::{percent_decode_str};
 
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -20,6 +21,7 @@ pub struct AppState {
 pub struct LookupResponse {
     pub ip: String,
     pub geo_info: GeoInfo,
+    pub is_vpn_or_datacenter: bool,
 }
 
 #[axum::debug_handler]
@@ -42,9 +44,13 @@ pub async fn lookup_ip(
         None => return Err(AppError::NotFound("IP address not found in database".to_string())),
     };
 
+    let detector = VpnDetector::get();
+    let is_vpn = detector.is_vpn_or_datacenter(ip_addr);
+
     Ok(Json(LookupResponse {
         ip: ip_addr.to_string(),
         geo_info,
+        is_vpn_or_datacenter: is_vpn,
     }))
 }
 
@@ -61,9 +67,13 @@ pub async fn lookup_self(
         None => return Err(AppError::NotFound("IP address not found in database".to_string())),
     };
 
+    let detector = VpnDetector::get();
+    let is_vpn = detector.is_vpn_or_datacenter(addr.ip());
+
     Ok(Json(LookupResponse {
         ip: addr.ip().to_string(),
         geo_info,
+        is_vpn_or_datacenter: is_vpn,
     }))
 }
 
@@ -78,6 +88,38 @@ pub async fn health_check() -> Json<HealthResponse> {
         status: "ok".to_string(),
         version: env!("CARGO_PKG_VERSION"),
     })
+}
+
+#[axum::debug_handler]
+pub async fn is_vpn_or_datacenter(
+    Path(ip_or_range): Path<String>,
+) -> Result<String, AppError> {
+    // URL decode the path parameter to handle %2F in the URL
+    let decoded = percent_decode_str(&ip_or_range)
+        .decode_utf8()
+        .map_err(|_| AppError::from(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Failed to decode URL-encoded input"
+        )))?;
+    
+    let detector = VpnDetector::get();
+    
+    // First try to parse as a single IP
+    if let Ok(ip_addr) = decoded.parse::<IpAddr>() {
+        let is_vpn = detector.is_vpn_or_datacenter(ip_addr);
+        return Ok(format!("is_vpn/datacenter: {}", is_vpn));
+    }
+    
+    // If that fails, try to parse as a network range
+    if let Some(is_vpn) = detector.is_range_vpn_or_datacenter(&decoded) {
+        return Ok(format!("contains_vpn/datacenter: {}", is_vpn));
+    }
+    
+    // If we get here, it's not a valid IP or network range
+    Err(AppError::from(std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
+        format!("Invalid IP address or network range format: '{}'. Expected format: '1.2.3.4' or '1.2.3.0/24'", decoded),
+    )))
 }
 
 // Unit tests
