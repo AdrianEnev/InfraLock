@@ -39,9 +39,17 @@ pub fn create_router(state: AppState) -> Router {
         // Check if ip is vpn or datacenter
         // Takes in a network range (CIDR) (also works if a regular ip is passed)
         .route(
-            "/api/vpn_datacentre/{*ip}",  
+            "/api/is_vpn_or_datacenter/{*ip}",
             get({
                 move |path| handlers::is_vpn_or_datacenter(path)
+            }),
+        )
+
+        // Add to the create_router function
+        .route(
+            "/api/is_proxy/{*ip}",
+            get({
+                move |path| handlers::is_proxy(path)
             }),
         )
 

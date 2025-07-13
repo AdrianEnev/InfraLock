@@ -9,6 +9,7 @@ mod handlers;
 mod routes;
 mod types;
 mod vpn_detection;
+mod proxy_detection;
 
 use crate::{
     config::Settings,
@@ -18,10 +19,22 @@ use crate::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    
     // Initialize tracing
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    .with(
+        tracing_subscriber::fmt::layer()
+            .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339())
+            .with_thread_ids(true)
+            .with_target(false) // Disable target to reduce noise
+            .with_level(true)
+            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+    )
+    .with(
+        tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| "debug".into())
+    )
+    .init();
 
     // Load configuration
     let settings = Settings::new()?;
