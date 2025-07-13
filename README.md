@@ -6,6 +6,7 @@ A high-performance geolocation API service built with Rust and Axum, using the M
 
 - Fast IP geolocation lookups
 - VPN and datacenter IP detection
+- Proxy detection with type identification (HTTP/HTTPS, SOCKS4, SOCKS5)
 - Support for both single IP and CIDR range checks
 - RESTful API endpoints with JSON responses
 - Built with async/await for high concurrency
@@ -22,6 +23,7 @@ A high-performance geolocation API service built with Rust and Axum, using the M
 - Rust (latest stable version)
 - MaxMind GeoLite2 City database (MMDB format)
 - VPN/Datacenter IP database (text file with CIDR ranges)
+- Proxy IP lists (text files with IP:PORT format)
 
 ### Installation
 
@@ -31,10 +33,15 @@ A high-performance geolocation API service built with Rust and Axum, using the M
    cd geolocation
    ```
 
-2. Download the MaxMind GeoLite2 City database (MMDB format) and place it in the `data` directory:
+2. Download the required database files and place them in the `data` directory:
    ```bash
-   mkdir -p data
+   mkdir -p data/proxies
    # Download GeoLite2-City.mmdb from MaxMind and place it in the data/ directory
+   # Place your VPN/Datacenter IP list in data/vpns/ipv4.txt
+   # Place your proxy lists in:
+   # - data/proxies/http.txt (HTTP/HTTPS proxies)
+   # - data/proxies/socks4.txt (SOCKS4 proxies)
+   # - data/proxies/socks5.txt (SOCKS5 proxies)
    ```
 
 3. Build the application:
@@ -49,7 +56,10 @@ Configuration can be provided via environment variables. The following variables
 - `GEO_SERVER__HOST`: Server host (default: `0.0.0.0`)
 - `GEO_SERVER__PORT`: Server port (default: `3000`)
 - `GEO_MAXMIND__DB_PATH`: Path to the MaxMind database file (default: `data/GeoLite2-City.mmdb`)
-- `GEO_VPN_DETECTOR__DB_PATH`: Path to the VPN/Datacenter IP database file (default: `data/vpn_networks.txt`)
+- `GEO_VPN_DETECTOR__DB_PATH`: Path to the VPN/Datacenter IP database file (default: `data/vpns/ipv4.txt`)
+- `GEO_PROXY_DETECTOR__HTTP_DB_PATH`: Path to the HTTP/HTTPS proxy list (default: `data/proxies/http.txt`)
+- `GEO_PROXY_DETECTOR__SOCKS4_DB_PATH`: Path to the SOCKS4 proxy list (default: `data/proxies/socks4.txt`)
+- `GEO_PROXY_DETECTOR__SOCKS5_DB_PATH`: Path to the SOCKS5 proxy list (default: `data/proxies/socks5.txt`)
 - `RUST_LOG`: Logging level (default: `geolocation=info,tower_http=info`)
 
 ## Running the Server
@@ -62,6 +72,9 @@ cargo run --release
 GEO_SERVER__PORT=8080 \
 GEO_MAXMIND__DB_PATH=/path/to/GeoLite2-City.mmdb \
 GEO_VPN_DETECTOR__DB_PATH=/path/to/vpn_networks.txt \
+GEO_PROXY_DETECTOR__HTTP_DB_PATH=/path/to/http_proxies.txt \
+GEO_PROXY_DETECTOR__SOCKS4_DB_PATH=/path/to/socks4_proxies.txt \
+GEO_PROXY_DETECTOR__SOCKS5_DB_PATH=/path/to/socks5_proxies.txt \
 cargo run --release
 ```
 
@@ -160,18 +173,66 @@ GET /api/lookup/self
 }
 ```
 
-### 4. VPN/Datacenter Check
+### 4. Proxy Check
+
+Check if an IP is a known proxy and get its type.
+
+```http
+GET /api/is_proxy/{ip_or_range}
+```
+
+**Parameters:**
+- `ip_or_range`: IP address or CIDR range to check
+
+**Example Request:**
+```http
+GET /api/is_proxy/1.2.3.4
+```
+
+**Example Response:**
+```json
+{
+  "is_proxy": true,
+  "proxy_type": "HTTP/HTTPS"
+}
+```
+
+**Example Response for non-proxy IP:**
+```json
+{
+  "is_proxy": false,
+  "proxy_type": null
+}
+```
+
+**Example Request for CIDR range:**
+```http
+GET /api/is_proxy/1.2.3.0/24
+```
+
+**Example Response for CIDR range:**
+```json
+{
+  "is_proxy": true,
+  "proxy_type": null
+}
+```
+
+### 5. VPN/Datacenter Check
 
 Check if an IP or CIDR range is associated with a VPN or datacenter.
 
-GET /api/vpn_datacentre/{ip_or_range}
+```http
+GET /api/is_vpn_or_datacenter/{ip_or_range}
+```
 
 **Parameters:**
-
 - `ip_or_range`: IP address or CIDR range to check
 
-**Example Requests:**
-
+**Example Request:**
+```http
+GET /api/is_vpn_or_datacenter/1.2.3.4
+```
 
 ## Error Responses
 
@@ -212,26 +273,29 @@ curl http://localhost:3000/api/lookup/8.8.8.8
 # Self lookup
 curl http://localhost:3000/api/lookup/self
 
+# Proxy check
+curl http://localhost:3000/api/is_proxy/1.2.3.4
+
 # VPN/Datacenter check
-curl http://localhost:3000/api/vpn_datacentre/1.2.3.4
+curl http://localhost:3000/api/is_vpn_or_datacenter/1.2.3.4
 ```
 
-Deployment
-Building for Production
-cargo build --release
+## Deployment
 
-Running with Environment Variables
+### Building for Production
+```bash
+cargo build --release
+```
+
+### Running with Environment Variables
+```bash
 GEO_MAXMIND__DB_PATH=/path/to/GeoLite2-City.mmdb \
 GEO_VPN_DETECTOR__DB_PATH=/path/to/vpn_networks.txt \
+GEO_PROXY_DETECTOR__HTTP_DB_PATH=/path/to/http_proxies.txt \
+GEO_PROXY_DETECTOR__SOCKS4_DB_PATH=/path/to/socks4_proxies.txt \
+GEO_PROXY_DETECTOR__SOCKS5_DB_PATH=/path/to/socks5_proxies.txt \
 RUST_LOG=info \
 ./target/release/geolocation
-
-### Integration Tests
-
-Integration tests are located in the `tests/` directory. To run them:
-
-```bash
-cargo test --test integration
 ```
 
 ## Performance

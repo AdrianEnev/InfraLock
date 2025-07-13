@@ -10,6 +10,11 @@ data/GeoLite2-City.mmdb
 # VPN database
 data/vpns/ipv4.txt
 
+# Proxy database
+data/proxies/http.txt
+data/proxies/socks4.txt
+data/proxies/socks5.txt
+
 # Cargo specific
 Cargo.lock
 

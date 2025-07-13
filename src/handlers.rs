@@ -8,7 +8,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::{error::AppError, vpn_detection::VpnDetector};
+use crate::{error::AppError, vpn_detection::VpnDetector, proxy_detection::ProxyDetector};
 use crate::types::location_types::GeoInfo;
 use percent_encoding::{percent_decode_str};
 
@@ -110,9 +110,54 @@ pub async fn is_vpn_or_datacenter(
         return Ok(format!("is_vpn/datacenter: {}", is_vpn));
     }
     
-    // If that fails, try to parse as a network range
+     // If that fails, try to parse as a network range
     if let Some(is_vpn) = detector.is_range_vpn_or_datacenter(&decoded) {
         return Ok(format!("contains_vpn/datacenter: {}", is_vpn));
+    }
+    
+    // If we get here, it's not a valid IP or network range
+    Err(AppError::from(std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
+        format!("Invalid IP address or network range format: '{}'. Expected format: '1.2.3.4' or '1.2.3.0/24'", decoded),
+    )))
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProxyResponse {
+    pub is_proxy: bool,
+    pub proxy_type: Option<&'static str>,
+}
+
+// Add a new handler function
+#[axum::debug_handler]
+pub async fn is_proxy(
+    Path(ip_or_range): Path<String>,
+) -> Result<Json<ProxyResponse>, AppError> {
+    // URL decode the path parameter
+    let decoded = percent_decode_str(&ip_or_range)
+        .decode_utf8()
+        .map_err(|_| AppError::from(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Failed to decode URL-encoded input"
+        )))?;
+    
+    let detector = ProxyDetector::get();
+    
+    // First try to parse as a single IP
+    if let Ok(ip_addr) = decoded.parse::<IpAddr>() {
+        let proxy_type = detector.check_proxy(ip_addr);
+        return Ok(Json(ProxyResponse {
+            is_proxy: proxy_type.is_some(),
+            proxy_type,
+        }));
+    }
+    
+    // If that fails, try to parse as a network range
+    if let Some(contains_proxy) = detector.is_range_proxy(&decoded) {
+        return Ok(Json(ProxyResponse {
+            is_proxy: contains_proxy,
+            proxy_type: None, // We don't have type information for ranges
+        }));
     }
     
     // If we get here, it's not a valid IP or network range
