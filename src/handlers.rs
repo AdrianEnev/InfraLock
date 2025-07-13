@@ -22,6 +22,8 @@ pub struct LookupResponse {
     pub ip: String,
     pub geo_info: GeoInfo,
     pub is_vpn_or_datacenter: bool,
+    pub is_proxy: bool,
+    pub proxy_type: Option<&'static str>,
 }
 
 #[axum::debug_handler]
@@ -44,13 +46,19 @@ pub async fn lookup_ip(
         None => return Err(AppError::NotFound("IP address not found in database".to_string())),
     };
 
-    let detector = VpnDetector::get();
-    let is_vpn = detector.is_vpn_or_datacenter(ip_addr);
+    let vpn_detector = VpnDetector::get();
+    let is_vpn = vpn_detector.is_vpn_or_datacenter(ip_addr);
+    
+    let proxy_detector = ProxyDetector::get();
+    let proxy_type = proxy_detector.check_proxy(ip_addr);
+    let is_proxy = proxy_type.is_some();
 
     Ok(Json(LookupResponse {
         ip: ip_addr.to_string(),
         geo_info,
         is_vpn_or_datacenter: is_vpn,
+        is_proxy,
+        proxy_type,
     }))
 }
 
@@ -67,27 +75,20 @@ pub async fn lookup_self(
         None => return Err(AppError::NotFound("IP address not found in database".to_string())),
     };
 
-    let detector = VpnDetector::get();
-    let is_vpn = detector.is_vpn_or_datacenter(addr.ip());
+    let vpn_detector = VpnDetector::get();
+    let is_vpn = vpn_detector.is_vpn_or_datacenter(addr.ip());
+    
+    let proxy_detector = ProxyDetector::get();
+    let proxy_type = proxy_detector.check_proxy(addr.ip());
+    let is_proxy = proxy_type.is_some();
 
     Ok(Json(LookupResponse {
         ip: addr.ip().to_string(),
         geo_info,
         is_vpn_or_datacenter: is_vpn,
+        is_proxy,
+        proxy_type,
     }))
-}
-
-#[derive(Debug, Serialize)]
-pub struct HealthResponse {
-    pub status: String,
-    pub version: &'static str,
-}
-
-pub async fn health_check() -> Json<HealthResponse> {
-    Json(HealthResponse {
-        status: "ok".to_string(),
-        version: env!("CARGO_PKG_VERSION"),
-    })
 }
 
 #[axum::debug_handler]
@@ -165,6 +166,19 @@ pub async fn is_proxy(
         std::io::ErrorKind::InvalidInput,
         format!("Invalid IP address or network range format: '{}'. Expected format: '1.2.3.4' or '1.2.3.0/24'", decoded),
     )))
+}
+
+#[derive(Debug, Serialize)]
+pub struct HealthResponse {
+    pub status: String,
+    pub version: &'static str,
+}
+
+pub async fn health_check() -> Json<HealthResponse> {
+    Json(HealthResponse {
+        status: "ok".to_string(),
+        version: env!("CARGO_PKG_VERSION"),
+    })
 }
 
 // Unit tests
