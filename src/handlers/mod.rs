@@ -8,8 +8,10 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::{error::AppError, vpn_detection::VpnDetector, proxy_detection::ProxyDetector};
-use crate::types::location_types::GeoInfo;
+use crate::errors::AppError;
+use crate::services::vpn_detection::VpnDetector;
+use crate::services::proxy_detection::ProxyDetector;
+use crate::models::location::GeoInfo;
 use percent_encoding::{percent_decode_str};
 
 #[derive(Debug, Clone)]
