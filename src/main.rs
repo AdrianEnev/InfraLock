@@ -9,10 +9,12 @@ mod handlers;
 mod routes;
 mod models;
 mod services;
+mod utils;
 
 use crate::config::Settings;
 use crate::handlers::AppState;
 use crate::routes::create_router;
+use crate::services::background_updater::{BackgroundUpdater, BackgroundUpdaterConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,6 +37,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load configuration
     let settings = Settings::new()?;
+
+    // --- BackgroundUpdater configuration ---
+    let updater_config = BackgroundUpdaterConfig {
+        vpn_url: "https://raw.githubusercontent.com/X4BNet/lists_vpn/refs/heads/main/output/datacenter/ipv4.txt".to_string(), // <-- FILL IN
+        http_proxy_url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt".to_string(), // <-- FILL IN
+        socks4_proxy_url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt".to_string(), // <-- FILL IN
+        socks5_proxy_url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt".to_string(), // <-- FILL IN
+        interval_secs: 86_400_000, // Check every 24 hours | 86_400_000
+        vpn_path: "data/vpns/ipv4.txt".to_string(),
+        http_proxy_path: "data/proxies/http.txt".to_string(),
+        socks4_proxy_path: "data/proxies/socks4.txt".to_string(),
+        socks5_proxy_path: "data/proxies/socks5.txt".to_string(),
+    };
+    let updater = BackgroundUpdater { config: updater_config };
+    tokio::spawn(async move {
+        updater.start().await;
+    });
+    // --- End BackgroundUpdater configuration ---
     
     // Clone the db_path to avoid moving settings
     let db_path = settings.resolve_db_path().unwrap_or_else(|e| {
