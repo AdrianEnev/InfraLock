@@ -4,18 +4,15 @@ use tokio::sync::RwLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
-mod error;
+mod errors;
 mod handlers;
 mod routes;
-mod types;
-mod vpn_detection;
-mod proxy_detection;
+mod models;
+mod services;
 
-use crate::{
-    config::Settings,
-    handlers::AppState,
-    routes::create_router,
-};
+use crate::config::Settings;
+use crate::handlers::AppState;
+use crate::routes::create_router;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
