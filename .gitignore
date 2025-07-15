@@ -18,6 +18,9 @@ data/proxies/http.txt
 data/proxies/socks4.txt
 data/proxies/socks5.txt
 
+# Tor nodes database
+data/tor/exit-addresses.txt
+
 # Cargo specific
 Cargo.lock
 
