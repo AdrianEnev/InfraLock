@@ -11,6 +11,7 @@ use tokio::sync::RwLock;
 use crate::errors::AppError;
 use crate::services::vpn_detection::VpnDetector;
 use crate::services::proxy_detection::ProxyDetector;
+use crate::models::location::{GeoInfo, AsnInfo};
 use crate::services::tor_detection::TorDetector;
 use crate::models::location::GeoInfo;
 use percent_encoding::{percent_decode_str};
@@ -18,12 +19,14 @@ use percent_encoding::{percent_decode_str};
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub maxmind_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>,
+    pub asn_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>, // ASN DB reader
 }
 
 #[derive(Debug, Serialize)]
 pub struct LookupResponse {
     pub ip: String,
     pub geo_info: GeoInfo,
+    pub asn_info: Option<AsnInfo>,
     pub is_vpn_or_datacenter: bool,
     pub is_proxy: bool,
     pub proxy_type: Option<&'static str>,
@@ -44,11 +47,15 @@ pub async fn lookup_ip(
 
     let reader = state.maxmind_reader.read().await;
     let city: Option<geoip2::City> = reader.lookup(ip_addr)?;
-    
     let geo_info = match city {
         Some(city) => GeoInfo::from(city),
         None => return Err(AppError::NotFound("IP address not found in database".to_string())),
     };
+
+    // ASN lookup
+    let asn_reader = state.asn_reader.read().await;
+    let asn: Option<geoip2::Asn> = asn_reader.lookup(ip_addr)?;
+    let asn_info = asn.as_ref().map(AsnInfo::from);
 
     let vpn_detector = VpnDetector::get();
     let is_vpn = vpn_detector.is_vpn_or_datacenter(ip_addr);
@@ -63,6 +70,7 @@ pub async fn lookup_ip(
     Ok(Json(LookupResponse {
         ip: ip_addr.to_string(),
         geo_info,
+        asn_info,
         is_vpn_or_datacenter: is_vpn,
         is_proxy,
         proxy_type,
@@ -77,11 +85,15 @@ pub async fn lookup_self(
 ) -> Result<Json<LookupResponse>, AppError> {
     let reader = state.maxmind_reader.read().await;
     let city: Option<geoip2::City> = reader.lookup(addr.ip())?;
-    
     let geo_info = match city {
         Some(city) => GeoInfo::from(city),
         None => return Err(AppError::NotFound("IP address not found in database".to_string())),
     };
+
+    // ASN lookup
+    let asn_reader = state.asn_reader.read().await;
+    let asn: Option<geoip2::Asn> = asn_reader.lookup(addr.ip())?;
+    let asn_info = asn.as_ref().map(AsnInfo::from);
 
     let vpn_detector = VpnDetector::get();
     let is_vpn = vpn_detector.is_vpn_or_datacenter(addr.ip());
@@ -96,6 +108,7 @@ pub async fn lookup_self(
     Ok(Json(LookupResponse {
         ip: addr.ip().to_string(),
         geo_info,
+        asn_info,
         is_vpn_or_datacenter: is_vpn,
         is_proxy,
         proxy_type,
