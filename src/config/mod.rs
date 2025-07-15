@@ -7,6 +7,7 @@ pub struct Settings {
     pub maxmind: MaxmindSettings,
     pub vpn_detector: VpnDetectorSettings,
     pub proxy_detector: ProxyDetectorSettings,
+    pub tor_detector: TorDetectorSettings,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -32,6 +33,11 @@ pub struct ProxyDetectorSettings {
     pub socks5_db_path: PathBuf,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct TorDetectorSettings {
+    pub db_path: PathBuf,
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
@@ -50,6 +56,9 @@ impl Default for Settings {
                 socks4_db_path: PathBuf::from("data/proxies/socks4.txt"),
                 socks5_db_path: PathBuf::from("data/proxies/socks5.txt"),
             },
+            tor_detector: TorDetectorSettings {
+                db_path: PathBuf::from("data/tor/exit-addresses.txt"),
+            },
         }
     }
 }
@@ -64,6 +73,7 @@ impl Settings {
             .set_default("proxy_detector.http_db_path", "data/proxies/http.txt")?
             .set_default("proxy_detector.socks4_db_path", "data/proxies/socks4.txt")?
             .set_default("proxy_detector.socks5_db_path", "data/proxies/socks5.txt")?
+            .set_default("tor_detector.db_path", "data/tor/exit-addresses.txt")?
             .add_source(
                 config::Environment::with_prefix("GEO")
                     .prefix_separator("__")
@@ -95,6 +105,15 @@ impl Settings {
         } else {
             let base_path = std::env::current_dir()?;
             Ok(base_path.join(&self.vpn_detector.db_path))
+        }
+    }
+
+    pub fn resolve_tor_detector_db_path(&self) -> std::io::Result<PathBuf> {
+        if self.tor_detector.db_path.is_absolute() {
+            Ok(self.tor_detector.db_path.clone())
+        } else {
+            let base_path = std::env::current_dir()?;
+            Ok(base_path.join(&self.tor_detector.db_path))
         }
     }
 

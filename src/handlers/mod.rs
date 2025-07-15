@@ -11,6 +11,7 @@ use tokio::sync::RwLock;
 use crate::errors::AppError;
 use crate::services::vpn_detection::VpnDetector;
 use crate::services::proxy_detection::ProxyDetector;
+use crate::services::tor_detection::TorDetector;
 use crate::models::location::GeoInfo;
 use percent_encoding::{percent_decode_str};
 
@@ -26,6 +27,7 @@ pub struct LookupResponse {
     pub is_vpn_or_datacenter: bool,
     pub is_proxy: bool,
     pub proxy_type: Option<&'static str>,
+    pub is_tor_exit_node: bool,
 }
 
 #[axum::debug_handler]
@@ -54,6 +56,9 @@ pub async fn lookup_ip(
     let proxy_detector = ProxyDetector::get();
     let proxy_type = proxy_detector.check_proxy(ip_addr);
     let is_proxy = proxy_type.is_some();
+    
+    let tor_detector = TorDetector::get();
+    let is_tor = tor_detector.is_tor_exit_node(ip_addr);
 
     Ok(Json(LookupResponse {
         ip: ip_addr.to_string(),
@@ -61,6 +66,7 @@ pub async fn lookup_ip(
         is_vpn_or_datacenter: is_vpn,
         is_proxy,
         proxy_type,
+        is_tor_exit_node: is_tor,
     }))
 }
 
@@ -83,6 +89,9 @@ pub async fn lookup_self(
     let proxy_detector = ProxyDetector::get();
     let proxy_type = proxy_detector.check_proxy(addr.ip());
     let is_proxy = proxy_type.is_some();
+    
+    let tor_detector = TorDetector::get();
+    let is_tor = tor_detector.is_tor_exit_node(addr.ip());
 
     Ok(Json(LookupResponse {
         ip: addr.ip().to_string(),
@@ -90,7 +99,40 @@ pub async fn lookup_self(
         is_vpn_or_datacenter: is_vpn,
         is_proxy,
         proxy_type,
+        is_tor_exit_node: is_tor,
     }))
+}
+
+#[axum::debug_handler]
+pub async fn is_tor_exit_node(
+    Path(ip_or_range): Path<String>,
+) -> Result<Json<TorResponse>, AppError> {
+    // URL decode the path parameter to handle %2F in the URL
+    let decoded = percent_decode_str(&ip_or_range)
+        .decode_utf8()
+        .map_err(|_| AppError::from(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Failed to decode URL-encoded input"
+        )))?;
+    
+    let detector = TorDetector::get();
+    
+    // Try to parse as a single IP
+    if let Ok(ip_addr) = decoded.parse::<IpAddr>() {
+        let is_tor = detector.is_tor_exit_node(ip_addr);
+        return Ok(Json(TorResponse { is_tor_exit_node: is_tor }));
+    }
+    
+    // If we get here, it's not a valid IP
+    Err(AppError::from(std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
+        format!("Invalid IP address format: '{}'", decoded),
+    )))
+}
+
+#[derive(Debug, Serialize)]
+pub struct TorResponse {
+    pub is_tor_exit_node: bool,
 }
 
 #[axum::debug_handler]
@@ -113,7 +155,7 @@ pub async fn is_vpn_or_datacenter(
         return Ok(format!("is_vpn/datacenter: {}", is_vpn));
     }
     
-     // If that fails, try to parse as a network range
+    // If that fails, try to parse as a network range
     if let Some(is_vpn) = detector.is_range_vpn_or_datacenter(&decoded) {
         return Ok(format!("contains_vpn/datacenter: {}", is_vpn));
     }
@@ -131,7 +173,6 @@ pub struct ProxyResponse {
     pub proxy_type: Option<&'static str>,
 }
 
-// Add a new handler function
 #[axum::debug_handler]
 pub async fn is_proxy(
     Path(ip_or_range): Path<String>,

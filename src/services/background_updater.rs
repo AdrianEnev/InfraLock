@@ -19,6 +19,8 @@ pub struct BackgroundUpdaterConfig {
     pub socks4_proxy_url: String,
     /// Remote URL for SOCKS5 proxies
     pub socks5_proxy_url: String,
+    /// Remote URL for Tor exit nodes
+    pub tor_exit_nodes_url: String,
     /// How often to check for updates (seconds)
     pub interval_secs: u64,
     /// Local file paths
@@ -26,6 +28,7 @@ pub struct BackgroundUpdaterConfig {
     pub http_proxy_path: String,
     pub socks4_proxy_path: String,
     pub socks5_proxy_path: String,
+    pub tor_exit_nodes_path: String,
 }
 
 /// Main background updater struct.
@@ -34,6 +37,11 @@ pub struct BackgroundUpdater {
 }
 
 impl BackgroundUpdater {
+    /// Create a new BackgroundUpdater with the given configuration.
+    pub fn new(config: BackgroundUpdaterConfig) -> Self {
+        Self { config }
+    }
+
     /// Start the background update loop as a Tokio task.
     pub async fn start(self) {
         loop {
@@ -73,6 +81,12 @@ impl BackgroundUpdater {
             &self.config.socks5_proxy_path,
             &temp_dir
         ).await?;
+        // Tor Exit Nodes
+        self.check_one(
+            &self.config.tor_exit_nodes_url,
+            &self.config.tor_exit_nodes_path,
+            &temp_dir
+        ).await?;
         // After all checks/updates
         // temp_dir is dropped here, and the directory + all files are deleted automatically
         Ok(())
@@ -109,4 +123,4 @@ impl BackgroundUpdater {
 }
 
 // NOTE: Replace the temp file path strings with actual temp file locations, e.g., /tmp/vpn.txt, or use tempfile crate for safety.
-// NOTE: Replace the URL strings in config with your actual remote file URLs. 
+// NOTE: Replace the URL strings in config with your actual remote file URLs.
