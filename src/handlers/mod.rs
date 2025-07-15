@@ -13,7 +13,6 @@ use crate::services::vpn_detection::VpnDetector;
 use crate::services::proxy_detection::ProxyDetector;
 use crate::models::location::{GeoInfo, AsnInfo};
 use crate::services::tor_detection::TorDetector;
-use crate::models::location::GeoInfo;
 use percent_encoding::{percent_decode_str};
 
 #[derive(Debug, Clone)]
