@@ -48,3 +48,18 @@ pub struct Location {
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AsnInfo {
+    pub autonomous_system_number: Option<u32>,
+    pub autonomous_system_organization: Option<String>,
+}
+
+impl<'a> From<&geoip2::Asn<'a>> for AsnInfo {
+    fn from(asn: &geoip2::Asn<'a>) -> Self {
+        AsnInfo {
+            autonomous_system_number: asn.autonomous_system_number,
+            autonomous_system_organization: asn.autonomous_system_organization.as_ref().map(|s| s.to_string()),
+        }
+    }
+}

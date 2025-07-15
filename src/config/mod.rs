@@ -19,6 +19,7 @@ pub struct ServerSettings {
 #[derive(Debug, Deserialize, Clone)]
 pub struct MaxmindSettings {
     pub db_path: PathBuf,
+    pub asn_db_path: PathBuf,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -47,6 +48,7 @@ impl Default for Settings {
             },
             maxmind: MaxmindSettings {
                 db_path: PathBuf::from("data/GeoLite2-City.mmdb"),
+                asn_db_path: PathBuf::from("data/providers/GeoLite2-ASN.mmdb"),
             },
             vpn_detector: VpnDetectorSettings {
                 db_path: PathBuf::from("data/vpns/ipv4.txt"),
@@ -69,6 +71,7 @@ impl Settings {
             .set_default("server.host", "0.0.0.0")?
             .set_default("server.port", 3000)?
             .set_default("maxmind.db_path", "data/GeoLite2-City.mmdb")?
+            .set_default("maxmind.asn_db_path", "data/providers/GeoLite2-ASN.mmdb")?
             .set_default("vpn_detector.db_path", "data/vpns/ipv4.txt")?
             .set_default("proxy_detector.http_db_path", "data/proxies/http.txt")?
             .set_default("proxy_detector.socks4_db_path", "data/proxies/socks4.txt")?
@@ -140,5 +143,14 @@ impl Settings {
         };
 
         Ok((http_db_path, socks4_db_path, socks5_db_path))
+    }
+
+    pub fn resolve_asn_db_path(&self) -> std::io::Result<PathBuf> {
+        if self.maxmind.asn_db_path.is_absolute() {
+            Ok(self.maxmind.asn_db_path.clone())
+        } else {
+            let base_path = std::env::current_dir()?;
+            Ok(base_path.join(&self.maxmind.asn_db_path))
+        }
     }
 }
