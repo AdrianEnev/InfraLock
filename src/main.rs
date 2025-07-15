@@ -61,10 +61,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         panic!("Failed to resolve database path: {}", e);
     });
     let reader = maxminddb::Reader::open_readfile(db_path)?;
+
+    // ASN DB initialization
+    let asn_db_path = settings.resolve_asn_db_path().unwrap_or_else(|e| {
+        panic!("Failed to resolve ASN database path: {}", e);
+    });
+    let asn_reader = maxminddb::Reader::open_readfile(asn_db_path)?;
     
     // Create application state
     let state = AppState { 
-        maxmind_reader: Arc::new(RwLock::new(reader)) 
+        maxmind_reader: Arc::new(RwLock::new(reader)),
+        asn_reader: Arc::new(RwLock::new(asn_reader)),
     };
 
     // Create router
