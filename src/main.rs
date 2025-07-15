@@ -40,17 +40,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // --- BackgroundUpdater configuration ---
     let updater_config = BackgroundUpdaterConfig {
-        vpn_url: "https://raw.githubusercontent.com/X4BNet/lists_vpn/refs/heads/main/output/datacenter/ipv4.txt".to_string(), // <-- FILL IN
-        http_proxy_url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt".to_string(), // <-- FILL IN
-        socks4_proxy_url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt".to_string(), // <-- FILL IN
-        socks5_proxy_url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt".to_string(), // <-- FILL IN
-        interval_secs: 86_400_000, // Check every 24 hours | 86_400_000
+        vpn_url: "https://raw.githubusercontent.com/X4BNet/lists_vpn/refs/heads/main/output/datacenter/ipv4.txt".to_string(),
+        http_proxy_url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt".to_string(),
+        socks4_proxy_url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt".to_string(),
+        socks5_proxy_url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt".to_string(),
+        tor_exit_nodes_url: "https://check.torproject.org/exit-addresses".to_string(),
+        interval_secs: 86400, // 24 hours in seconds
         vpn_path: "data/vpns/ipv4.txt".to_string(),
         http_proxy_path: "data/proxies/http.txt".to_string(),
         socks4_proxy_path: "data/proxies/socks4.txt".to_string(),
         socks5_proxy_path: "data/proxies/socks5.txt".to_string(),
+        tor_exit_nodes_path: "data/tor/exit-addresses.txt".to_string(),
     };
-    let updater = BackgroundUpdater { config: updater_config };
+    
+    let updater = BackgroundUpdater::new(updater_config);
     tokio::spawn(async move {
         updater.start().await;
     });
