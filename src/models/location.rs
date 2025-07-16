@@ -26,30 +26,30 @@ impl From<geoip2::City<'_>> for GeoInfo {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct GeoInfo {
     pub city: Option<City>,
     pub country: Option<Country>,
     pub location: Option<Location>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct City {
     pub names: Option<std::collections::HashMap<String, String>>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Country {
     pub names: Option<std::collections::HashMap<String, String>>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Location {
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct AsnInfo {
     pub autonomous_system_number: Option<u32>,
     pub autonomous_system_organization: Option<String>,

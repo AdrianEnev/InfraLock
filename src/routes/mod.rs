@@ -36,6 +36,18 @@ pub fn create_router(state: AppState) -> Router {
             }),
         )
 
+         // Get threat score for a specific IP
+         .route(
+            "/api/threat_score/{ip}",
+            get(handlers::get_threat_score),
+        )
+
+        // Get threat score for self IP
+        .route(
+            "/api/threat_score/self",
+            get(handlers::get_self_threat_score),
+        )
+
         // Check if IP is a VPN or datacenter
         // Takes in a network range (CIDR) (also works if a regular ip is passed)
         .route(

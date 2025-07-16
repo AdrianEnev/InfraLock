@@ -2,26 +2,27 @@ use axum::{
     extract::{Path, State, ConnectInfo},
     Json,
 };
-use maxminddb::geoip2;
 use serde::Serialize;
-use std::net::IpAddr;
+use std::{collections::HashMap, net::IpAddr};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::RwLock;    
 
-use crate::errors::AppError;
+use crate::{errors::AppError, services::lookup_service::LookupService};
 use crate::services::vpn_detection::VpnDetector;
 use crate::services::proxy_detection::ProxyDetector;
-use crate::models::location::{GeoInfo, AsnInfo};
 use crate::services::tor_detection::TorDetector;
+use crate::models::location::{GeoInfo, AsnInfo};
 use percent_encoding::{percent_decode_str};
+use crate::models::threat_score::ThreatScore;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub maxmind_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>,
     pub asn_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>, // ASN DB reader
+    pub lookup_cache: Arc<RwLock<HashMap<IpAddr, LookupResponse>>>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct LookupResponse {
     pub ip: String,
     pub geo_info: GeoInfo,
@@ -30,6 +31,15 @@ pub struct LookupResponse {
     pub is_proxy: bool,
     pub proxy_type: Option<&'static str>,
     pub is_tor_exit_node: bool,
+    pub threat_score: u8,  // 0-100 threat score
+    pub threat_details: Vec<String>,  // Descriptions of threats found
+}
+
+#[derive(Debug, Serialize)]
+pub struct ThreatScoreResponse {
+    pub ip: String,
+    pub threat_score: u8,
+    pub threat_details: Vec<String>,
 }
 
 #[axum::debug_handler]
@@ -44,18 +54,43 @@ pub async fn lookup_ip(
         ))
     })?;
 
-    let reader = state.maxmind_reader.read().await;
-    let city: Option<geoip2::City> = reader.lookup(ip_addr)?;
-    let geo_info = match city {
-        Some(city) => GeoInfo::from(city),
-        None => return Err(AppError::NotFound("IP address not found in database".to_string())),
-    };
+    let lookup_service = LookupService::new(
+        Arc::clone(&state.maxmind_reader),
+        Arc::clone(&state.asn_reader),
+        Arc::clone(&state.lookup_cache),
+    );
 
-    // ASN lookup
-    let asn_reader = state.asn_reader.read().await;
-    let asn: Option<geoip2::Asn> = asn_reader.lookup(ip_addr)?;
-    let asn_info = asn.as_ref().map(AsnInfo::from);
+    let response = lookup_service.lookup_ip(ip_addr).await?;
+    Ok(Json(response))
+}
 
+#[axum::debug_handler]
+pub async fn lookup_self(
+    State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
+) -> Result<Json<LookupResponse>, AppError> {
+    let lookup_service = LookupService::new(
+        Arc::clone(&state.maxmind_reader),
+        Arc::clone(&state.asn_reader),
+        Arc::clone(&state.lookup_cache),
+    );
+
+    let response = lookup_service.lookup_ip(addr.ip()).await?;
+    Ok(Json(response))
+}
+
+#[axum::debug_handler]
+pub async fn get_threat_score(
+    Path(ip): Path<String>,
+) -> Result<Json<ThreatScoreResponse>, AppError> {
+    let ip_addr: IpAddr = ip.parse().map_err(|_| {
+        AppError::from(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Invalid IP address format",
+        ))
+    })?;
+
+    // Get the necessary detection results
     let vpn_detector = VpnDetector::get();
     let is_vpn = vpn_detector.is_vpn_or_datacenter(ip_addr);
     
@@ -66,34 +101,33 @@ pub async fn lookup_ip(
     let tor_detector = TorDetector::get();
     let is_tor = tor_detector.is_tor_exit_node(ip_addr);
 
-    Ok(Json(LookupResponse {
-        ip: ip_addr.to_string(),
-        geo_info,
-        asn_info,
-        is_vpn_or_datacenter: is_vpn,
+    // Calculate threat score
+    let threat_score = ThreatScore::from_ip_info(
+        ip_addr,
+        is_vpn,
         is_proxy,
         proxy_type,
-        is_tor_exit_node: is_tor,
+        is_tor,
+    );
+
+    // Extract threat details
+    let threat_details = threat_score.findings
+        .iter()
+        .map(|f| f.description.clone())
+        .collect();
+
+    Ok(Json(ThreatScoreResponse {
+        ip: ip_addr.to_string(),
+        threat_score: threat_score.score,
+        threat_details,
     }))
 }
 
 #[axum::debug_handler]
-pub async fn lookup_self(
-    State(state): State<Arc<AppState>>,
+pub async fn get_self_threat_score(
     ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
-) -> Result<Json<LookupResponse>, AppError> {
-    let reader = state.maxmind_reader.read().await;
-    let city: Option<geoip2::City> = reader.lookup(addr.ip())?;
-    let geo_info = match city {
-        Some(city) => GeoInfo::from(city),
-        None => return Err(AppError::NotFound("IP address not found in database".to_string())),
-    };
-
-    // ASN lookup
-    let asn_reader = state.asn_reader.read().await;
-    let asn: Option<geoip2::Asn> = asn_reader.lookup(addr.ip())?;
-    let asn_info = asn.as_ref().map(AsnInfo::from);
-
+) -> Result<Json<ThreatScoreResponse>, AppError> {
+    // Get the necessary detection results
     let vpn_detector = VpnDetector::get();
     let is_vpn = vpn_detector.is_vpn_or_datacenter(addr.ip());
     
@@ -104,14 +138,25 @@ pub async fn lookup_self(
     let tor_detector = TorDetector::get();
     let is_tor = tor_detector.is_tor_exit_node(addr.ip());
 
-    Ok(Json(LookupResponse {
-        ip: addr.ip().to_string(),
-        geo_info,
-        asn_info,
-        is_vpn_or_datacenter: is_vpn,
+    // Calculate threat score
+    let threat_score = ThreatScore::from_ip_info(
+        addr.ip(),
+        is_vpn,
         is_proxy,
         proxy_type,
-        is_tor_exit_node: is_tor,
+        is_tor,
+    );
+
+    // Extract threat details
+    let threat_details = threat_score.findings
+        .iter()
+        .map(|f| f.description.clone())
+        .collect();
+
+    Ok(Json(ThreatScoreResponse {
+        ip: addr.ip().to_string(),
+        threat_score: threat_score.score,
+        threat_details,
     }))
 }
 
@@ -161,13 +206,13 @@ pub async fn is_vpn_or_datacenter(
     
     let detector = VpnDetector::get();
     
-    // First try to parse as a single IP
+    // First try to parse as a single IP (Ex. 192.168.1.100)
     if let Ok(ip_addr) = decoded.parse::<IpAddr>() {
         let is_vpn = detector.is_vpn_or_datacenter(ip_addr);
         return Ok(format!("is_vpn/datacenter: {}", is_vpn));
     }
     
-    // If that fails, try to parse as a network range
+    // If that fails, try to parse as a network range (Ex. 192.168.1.0/24)
     if let Some(is_vpn) = detector.is_range_vpn_or_datacenter(&decoded) {
         return Ok(format!("contains_vpn/datacenter: {}", is_vpn));
     }
