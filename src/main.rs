@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
@@ -75,6 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState { 
         maxmind_reader: Arc::new(RwLock::new(reader)),
         asn_reader: Arc::new(RwLock::new(asn_reader)),
+        lookup_cache: Arc::new(RwLock::new(HashMap::new())),
     };
 
     // Create router
