@@ -14,12 +14,14 @@ use crate::services::tor_detection::TorDetector;
 use crate::models::location::{GeoInfo, AsnInfo};
 use percent_encoding::{percent_decode_str};
 use crate::models::threat_score::ThreatScore;
+use crate::ip_lookup::IpLookupService;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub maxmind_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>,
     pub asn_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>, // ASN DB reader
     pub lookup_cache: Arc<RwLock<HashMap<IpAddr, LookupResponse>>>,
+    pub ip_lookup_service: Arc<IpLookupService>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -58,6 +60,7 @@ pub async fn lookup_ip(
         Arc::clone(&state.maxmind_reader),
         Arc::clone(&state.asn_reader),
         Arc::clone(&state.lookup_cache),
+        Arc::clone(&state.ip_lookup_service),
     );
 
     let response = lookup_service.lookup_ip(ip_addr).await?;
@@ -73,6 +76,7 @@ pub async fn lookup_self(
         Arc::clone(&state.maxmind_reader),
         Arc::clone(&state.asn_reader),
         Arc::clone(&state.lookup_cache),
+        Arc::clone(&state.ip_lookup_service),
     );
 
     let response = lookup_service.lookup_ip(addr.ip()).await?;
