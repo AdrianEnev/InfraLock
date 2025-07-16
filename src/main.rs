@@ -11,6 +11,7 @@ mod routes;
 mod models;
 mod services;
 mod utils;
+mod ip_lookup;
 
 use crate::config::Settings;
 use crate::handlers::AppState;
@@ -71,12 +72,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         panic!("Failed to resolve ASN database path: {}", e);
     });
     let asn_reader = maxminddb::Reader::open_readfile(asn_db_path)?;
+
+    // Initialize IP lookup service
+    let ip_lookup_config = ip_lookup::default_config()?;
+    let ip_lookup_service = Arc::new(ip_lookup::IpLookupService::new(ip_lookup_config));
+    ip_lookup_service.start_background_updates();
     
     // Create application state
     let state = AppState { 
         maxmind_reader: Arc::new(RwLock::new(reader)),
         asn_reader: Arc::new(RwLock::new(asn_reader)),
         lookup_cache: Arc::new(RwLock::new(HashMap::new())),
+        ip_lookup_service: ip_lookup_service,
     };
 
     // Create router
