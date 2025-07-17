@@ -54,13 +54,7 @@ impl LookupService {
         let city: Option<maxminddb::geoip2::City<'_>> = geo_result?;
         let asn: Option<maxminddb::geoip2::Asn<'_>> = asn_result?;
         
-        let geo_info = city.map(GeoInfo::from).ok_or_else(|| {
-            AppError::from(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "No geo data found for this IP address",
-            ))
-        })?;
-        
+        let geo_info = city.map(GeoInfo::from);
         let asn_info = asn.as_ref().map(AsnInfo::from);
 
         // Determine threat type based on IP category

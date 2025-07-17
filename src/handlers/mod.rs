@@ -27,7 +27,7 @@ pub struct AppState {
 #[derive(Debug, Serialize, Clone)]
 pub struct LookupResponse {
     pub ip: String,
-    pub geo_info: GeoInfo,
+    pub geo_info: Option<GeoInfo>,
     pub asn_info: Option<AsnInfo>,
     pub is_vpn_or_datacenter: bool,
     pub is_proxy: bool,
