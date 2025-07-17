@@ -21,6 +21,9 @@ data/proxies/socks5.txt
 # Tor nodes database
 data/tor/exit-addresses.txt
 
+# Ignore ip_ranges
+data/ip_ranges/
+
 # Cargo specific
 Cargo.lock
 
