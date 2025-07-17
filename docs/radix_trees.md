@@ -165,4 +165,4 @@ if let Some(category) = service.tree().lookup(ip) {
 
 ## License
 
-[Your license information here]
+MIT
