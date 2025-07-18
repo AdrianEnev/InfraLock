@@ -35,6 +35,7 @@ pub struct LookupResponse {
     pub is_tor_exit_node: bool,
     pub threat_score: u8,  // 0-100 threat score
     pub threat_details: Vec<String>,  // Descriptions of threats found
+    pub recommended_action: String,  // Recommended response action (allow/challenge/block/redirect/monitor)
 }
 
 #[derive(Debug, Serialize)]
