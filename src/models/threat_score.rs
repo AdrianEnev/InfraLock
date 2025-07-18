@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::net::IpAddr;
 
 /// Represents different types of threats that can contribute to the overall threat score
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
 pub enum ThreatType {
     VpnOrDatacenter,
     Proxy,
