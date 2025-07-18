@@ -1,13 +1,20 @@
 use axum::{
-    extract::{Path, State, ConnectInfo},
-    Json,
+    body::Body, extract::{ConnectInfo, Path, State}, Json
 };
 use serde::Serialize;
-use std::{collections::HashMap, net::IpAddr};
+use std::net::{IpAddr};
 use std::sync::Arc;
 use tokio::sync::RwLock;    
 
-use crate::{errors::AppError, services::lookup_service::LookupService};
+use axum::extract::Request;
+
+use crate::{
+    errors::{
+        validation::{
+            extract_client_ip, validate_ip, IpValidationError
+        }, AppError
+    }, services::lookup_service::LookupService
+};
 use crate::services::vpn_detection::VpnDetector;
 use crate::services::proxy_detection::ProxyDetector;
 use crate::services::tor_detection::TorDetector;
@@ -15,12 +22,13 @@ use crate::models::location::{GeoInfo, AsnInfo};
 use percent_encoding::{percent_decode_str};
 use crate::models::threat_score::ThreatScore;
 use crate::ip_lookup::IpLookupService;
+use moka::sync::Cache;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub maxmind_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>,
     pub asn_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>, // ASN DB reader
-    pub lookup_cache: Arc<RwLock<HashMap<IpAddr, LookupResponse>>>,
+    pub lookup_cache: Arc<Cache<IpAddr, LookupResponse>>,
     pub ip_lookup_service: Arc<IpLookupService>,
 }
 
@@ -50,17 +58,18 @@ pub async fn lookup_ip(
     Path(ip): Path<String>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<LookupResponse>, AppError> {
-    let ip_addr: IpAddr = ip.parse().map_err(|_| {
-        AppError::from(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "Invalid IP address format",
-        ))
-    })?;
+    let ip_addr: IpAddr = ip.parse()?;
+    
+    // IP validation
+    if let Err(e) = validate_ip(ip_addr) {
+        tracing::warn!("Rejected IP lookup for {}: {}", ip_addr, e);
+        return Err(AppError::ValidationError(e));
+    }
 
     let lookup_service = LookupService::new(
         Arc::clone(&state.maxmind_reader),
         Arc::clone(&state.asn_reader),
-        Arc::clone(&state.lookup_cache),
+        state.lookup_cache.clone(),
         Arc::clone(&state.ip_lookup_service),
     );
 
@@ -71,16 +80,38 @@ pub async fn lookup_ip(
 #[axum::debug_handler]
 pub async fn lookup_self(
     State(state): State<Arc<AppState>>,
-    ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
+    request: Request<Body>,
 ) -> Result<Json<LookupResponse>, AppError> {
+    // First, check if we have any of the required headers
+    let headers = request.headers();
+    
+    // Log available headers for debugging
+    tracing::debug!("Available headers: {:?}", headers.keys().map(|h| h.as_str()).collect::<Vec<_>>());
+    
+    // Extract and validate IP from headers
+    let ip_addr = extract_client_ip(headers)
+        .map_err(|e| {
+            tracing::warn!("IP extraction failed: {}", e);
+            AppError::from(e)
+        })?;
+
+    // Log the IP for debugging
+    tracing::debug!("Client IP: {}", ip_addr);
+    
+    // Validate the IP
+    if let Err(e) = validate_ip(ip_addr) {
+        tracing::warn!("Rejected IP lookup for {}: {}", ip_addr, e);
+        return Err(AppError::from(e));
+    }
+
     let lookup_service = LookupService::new(
         Arc::clone(&state.maxmind_reader),
         Arc::clone(&state.asn_reader),
-        Arc::clone(&state.lookup_cache),
+        state.lookup_cache.clone(),
         Arc::clone(&state.ip_lookup_service),
     );
 
-    let response = lookup_service.lookup_ip(addr.ip()).await?;
+    let response = lookup_service.lookup_ip(ip_addr).await?;
     Ok(Json(response))
 }
 
@@ -94,6 +125,12 @@ pub async fn get_threat_score(
             "Invalid IP address format",
         ))
     })?;
+
+    // IP validation
+    if let Err(e) = validate_ip(ip_addr) {
+        tracing::warn!("Rejected IP lookup for {}: {}", ip_addr, e);
+        return Err(AppError::ValidationError(e));
+    }
 
     // Get the necessary detection results
     let vpn_detector = VpnDetector::get();
@@ -132,20 +169,33 @@ pub async fn get_threat_score(
 pub async fn get_self_threat_score(
     ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
 ) -> Result<Json<ThreatScoreResponse>, AppError> {
+    let ip_addr: IpAddr = addr.ip().to_string().parse().map_err(|_| {
+        AppError::from(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Invalid IP address format",
+        ))
+    })?;
+    
+    // IP validation
+    if let Err(e) = validate_ip(ip_addr) {
+        tracing::warn!("Rejected IP lookup for {}: {}", ip_addr, e);
+        return Err(AppError::ValidationError(e));
+    }
+
     // Get the necessary detection results
     let vpn_detector = VpnDetector::get();
-    let is_vpn = vpn_detector.is_vpn_or_datacenter(addr.ip());
+    let is_vpn = vpn_detector.is_vpn_or_datacenter(ip_addr);
     
     let proxy_detector = ProxyDetector::get();
-    let proxy_type = proxy_detector.check_proxy(addr.ip());
+    let proxy_type = proxy_detector.check_proxy(ip_addr);
     let is_proxy = proxy_type.is_some();
     
     let tor_detector = TorDetector::get();
-    let is_tor = tor_detector.is_tor_exit_node(addr.ip());
+    let is_tor = tor_detector.is_tor_exit_node(ip_addr);
 
     // Calculate threat score
     let threat_score = ThreatScore::from_ip_info(
-        addr.ip(),
+        ip_addr,
         is_vpn,
         is_proxy,
         proxy_type,
@@ -159,7 +209,7 @@ pub async fn get_self_threat_score(
         .collect();
 
     Ok(Json(ThreatScoreResponse {
-        ip: addr.ip().to_string(),
+        ip: ip_addr.to_string(),
         threat_score: threat_score.score,
         threat_details,
     }))
@@ -290,9 +340,7 @@ pub async fn health_check() -> Json<HealthResponse> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::extract::ConnectInfo;
     use std::net::SocketAddr;
-    use std::str::FromStr;
 
     // Test health_check handler
     #[tokio::test]
@@ -323,9 +371,61 @@ mod tests {
     #[tokio::test]
     async fn test_lookup_self() {
         let state = setup_test_state();
-        let addr = SocketAddr::from_str("127.0.0.1:8080").unwrap();
-        let result = lookup_self(State(state), ConnectInfo(addr)).await;
+        
+        // Create a test request with X-Forwarded-For header
+        let request = Request::builder()
+            .uri("/lookup/self")
+            .header("x-forwarded-for", "203.0.113.1, 198.51.100.1")
+            .body(Body::empty())
+            .unwrap();
+            
+        // Create a mock ConnectInfo
+        let remote_addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+        let connect_info = ConnectInfo(remote_addr);
+        
+        // Insert ConnectInfo into extensions
+        let (mut parts, body) = request.into_parts();
+        parts.extensions.insert(connect_info);
+        let request = Request::from_parts(parts, body);
+        
+        let result = lookup_self(State(state), request).await;
         assert!(result.is_ok());
+        
+        // The IP should be the first one from X-Forwarded-For
+        let response = result.unwrap();
+        assert_eq!(response.0.ip, "203.0.113.1");
+        
+        // Test with X-Real-IP header
+        let state = setup_test_state();
+        let request = Request::builder()
+            .uri("/lookup/self")
+            .header("x-real-ip", "192.0.2.1")
+            .body(Body::empty())
+            .unwrap();
+            
+        // Insert ConnectInfo into extensions
+        let (mut parts, body) = request.into_parts();
+        parts.extensions.insert(ConnectInfo(remote_addr));
+        let request = Request::from_parts(parts, body);
+        
+        let result = lookup_self(State(state), request).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().0.ip, "192.0.2.1");
+        
+        // Test with direct connection (no headers)
+        let state = setup_test_state();
+        let request = Request::builder()
+            .uri("/lookup/self")
+            .body(Body::empty())
+            .unwrap();
+            
+        // Insert ConnectInfo into extensions
+        let (mut parts, body) = request.into_parts();
+        parts.extensions.insert(ConnectInfo(remote_addr));
+        let request = Request::from_parts(parts, body);
+        
+        let result = lookup_self(State(state), request).await;
+        assert!(result.is_err());
     }
 
     fn setup_test_state() -> Arc<AppState> {
