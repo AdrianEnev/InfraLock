@@ -7,14 +7,14 @@ use crate::models::threat_score::ThreatScore;
 use crate::handlers::LookupResponse;
 use crate::errors::AppError;
 use crate::services::response_action::ResponseActionService;
-use std::collections::HashMap;
 use crate::ip_lookup::{IpLookupService, IpCategory};
 use maxminddb;
+use moka::sync::Cache;
 
 pub struct LookupService {
     maxmind_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>,
     asn_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>,
-    lookup_cache: Arc<RwLock<HashMap<IpAddr, LookupResponse>>>,
+    lookup_cache: Arc<Cache<IpAddr, LookupResponse>>,
     ip_lookup_service: Arc<IpLookupService>,
 }
 
@@ -22,7 +22,7 @@ impl LookupService {
     pub fn new(
         maxmind_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>,
         asn_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>,
-        lookup_cache: Arc<RwLock<HashMap<IpAddr, LookupResponse>>>,
+        lookup_cache: Arc<Cache<IpAddr, LookupResponse>>,
         ip_lookup_service: Arc<IpLookupService>,
     ) -> Self {
         Self {
@@ -35,7 +35,7 @@ impl LookupService {
 
     pub async fn lookup_ip(&self, ip_addr: IpAddr) -> Result<LookupResponse, AppError> {
         // Check cache first
-        if let Some(cached) = self.lookup_cache.read().await.get(&ip_addr) {
+        if let Some(cached) = self.lookup_cache.get(&ip_addr) {
             return Ok(cached.clone());
         }
 
@@ -99,7 +99,7 @@ impl LookupService {
         };
 
         // Cache the response
-        self.lookup_cache.write().await.insert(ip_addr, response.clone());
+        self.lookup_cache.insert(ip_addr, response.clone());
 
         Ok(response)
     }

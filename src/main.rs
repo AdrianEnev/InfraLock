@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use moka::sync::Cache;
+use std::time::Duration;
+
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
@@ -77,17 +79,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ip_lookup_config = ip_lookup::default_config()?;
     let ip_lookup_service = Arc::new(ip_lookup::IpLookupService::new(ip_lookup_config));
     ip_lookup_service.start_background_updates();
+
+    // In main.rs
+    let ttl_seconds = std::env::var("CACHE_TTL_SECONDS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3600); // default 1 hour
+
+    let lookup_cache = Arc::new(
+        Cache::builder()
+            .time_to_live(Duration::from_secs(ttl_seconds))
+            .max_capacity(100_000)
+            .build()
+        );
     
     // Create application state
     let state = AppState { 
         maxmind_reader: Arc::new(RwLock::new(reader)),
         asn_reader: Arc::new(RwLock::new(asn_reader)),
-        lookup_cache: Arc::new(RwLock::new(HashMap::new())),
+        lookup_cache: lookup_cache,
         ip_lookup_service: ip_lookup_service,
     };
 
     // Create router
-    let app = create_router(state);
+    let app: axum::Router = create_router(state);
 
     // Run the server
     let addr = settings.server_addr();
