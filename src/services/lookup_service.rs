@@ -6,6 +6,7 @@ use crate::models::location::{GeoInfo, AsnInfo};
 use crate::models::threat_score::ThreatScore;
 use crate::handlers::LookupResponse;
 use crate::errors::AppError;
+use crate::services::response_action::ResponseActionService;
 use std::collections::HashMap;
 use crate::ip_lookup::{IpLookupService, IpCategory};
 use maxminddb;
@@ -76,6 +77,10 @@ impl LookupService {
             is_tor,
         );
 
+        // Determine recommended response action
+        let response_action_service = ResponseActionService::new();
+        let recommended_action = response_action_service.determine_action(&threat_score);
+
         // Build the response
         let response = LookupResponse {
             ip: ip_addr.to_string(),
@@ -90,6 +95,7 @@ impl LookupService {
                 .iter()
                 .map(|f| f.description.clone())
                 .collect(),
+                recommended_action: format!("{:?}", recommended_action).to_lowercase()
         };
 
         // Cache the response
