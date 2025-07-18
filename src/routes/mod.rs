@@ -1,9 +1,13 @@
 use axum::{
-    extract::State,
     routing::get,
     Router,
+    middleware::{self, Next},
+    response::Response,
+    body::Body,
+    http::{Request},
+    extract::{ConnectInfo},
 };
-use std::sync::Arc;
+use std::{sync::Arc, net::SocketAddr};
 use tower_http::trace::TraceLayer;
 
 use crate::handlers::{self, AppState};
@@ -19,21 +23,15 @@ pub fn create_router(state: AppState) -> Router {
         // VPN/Datacenter (true/false)
         .route(
             "/api/lookup/self",
-            get({
-                let state = Arc::clone(&shared_state);
-                move |connect_info| handlers::lookup_self(State(state), connect_info)
-            }),
+            get(handlers::lookup_self),  // Let Axum handle the state injection
         )
-
+        
         // Returns specified IP:
         // Location (city?, country?, coordinates?)
         // VPN/Datacenter (true/false)
         .route(
             "/api/lookup/{ip}",
-            get({
-                let state = Arc::clone(&shared_state);
-                move |path| handlers::lookup_ip(path, State(state))
-            }),
+            get(handlers::lookup_ip),
         )
 
          // Get threat score for a specific IP
@@ -72,4 +70,5 @@ pub fn create_router(state: AppState) -> Router {
         
         // Add tracing
         .layer(TraceLayer::new_for_http())
+        .with_state(shared_state) // Inject the state into the router so it doesn't have to be passed to every route
 }
