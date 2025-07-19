@@ -15,7 +15,7 @@ export const comparePassword = async (password: string, hash: string): Promise<b
 };
 
 export const generateApiKey = (): string => {
-  return crypto.randomBytes(32).toString('hex');
+  return 'sk_' + crypto.randomBytes(32).toString('hex');
 };
 
 export const generateJWT = (payload: object): string => {
