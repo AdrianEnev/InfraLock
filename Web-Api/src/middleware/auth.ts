@@ -1,31 +1,86 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyJWT } from '../utils/authUtils';
+import { verifyJWT, getTokenFromRequest } from '../utils/authUtils';
 import prisma from '../prisma';
+import { Unauthorized } from '../errors/Unauthorized';
+
+export interface AuthenticatedRequest extends Request {
+    user?: {
+        id: string;
+        email: string;
+        role: string;
+        apiKey: string;
+    };
+    jwtUser?: any;
+}
 
 export const authenticateApiKey = async (req: Request, res: Response, next: NextFunction) => {
-    const apiKey = req.header('x-api-key');
-    if (!apiKey) {
-        return res.status(401).json({ error: 'API key missing' });
+    try {
+        const apiKey = req.header('x-api-key');
+        if (!apiKey) {
+            return next(new Unauthorized('API key is required'));
+        }
+        
+        const user = await prisma.user.findUnique({ 
+            where: { apiKey },
+            select: {
+                id: true,
+                email: true,
+                role: true,
+                apiKey: true
+            }
+        });
+        
+        if (!user) {
+            return next(new Unauthorized('Invalid API key'));
+        }
+        
+        (req as AuthenticatedRequest).user = user;
+        next();
+    } catch (error: unknown) {
+        next(error);
     }
-    const user = await prisma.user.findUnique({ where: { apiKey } });
-    if (!user) {
-        return res.status(401).json({ error: 'Invalid API key' });
-    }
-    (req as any).user = user;
-    next();
 };
 
-export const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'JWT token missing' });
-    }
-    const token = authHeader.replace('Bearer ', '');
+export const authenticateJWT = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const decoded = verifyJWT(token);
-        (req as any).jwtUser = decoded;
+        const token = getTokenFromRequest(req);
+        
+        if (!token) {
+            return next(new Unauthorized('Authentication required'));
+        }
+        
+        const decoded = verifyJWT(token) as { userId: string; email: string; role: string };
+        
+        // Verify user still exists and is active
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            select: {
+                id: true,
+                email: true,
+                role: true,
+                apiKey: true
+            }
+        });
+        
+        if (!user) {
+            return next(new Unauthorized('User not found'));
+        }
+        
+        // Attach user to request
+        const authReq = req as AuthenticatedRequest;
+        authReq.user = user;
+        authReq.jwtUser = decoded;
+        
         next();
-    } catch (err) {
-        return res.status(401).json({ error: 'Invalid or expired JWT token' });
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            if (error.name === 'TokenExpiredError') {
+                return next(new Unauthorized('Token has expired'));
+            }
+            if (error.name === 'JsonWebTokenError') {
+                return next(new Unauthorized('Invalid token'));
+            }
+        }
+        next(error);
     }
-}; 
+};

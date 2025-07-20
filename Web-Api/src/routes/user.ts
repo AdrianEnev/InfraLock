@@ -1,24 +1,26 @@
 import { Router } from 'express';
-import { registerUser, loginUser, getApiKey, createApiKey } from '../controllers/userController';
+import { 
+  registerUser, 
+  loginUser, 
+  logoutUser, 
+  getApiKey, 
+  createApiKey, 
+  getCurrentUser 
+} from '../controllers/userController';
 import { authenticateJWT } from '../middleware/auth';
 
 const router = Router();
 
-// Register a new user
+// Public routes
 router.post('/register', registerUser);
-
-// Login user
 router.post('/login', loginUser);
 
-// Get API key for authenticated user (JWT required)
-router.get('/apikey', authenticateJWT, getApiKey);
+// Protected routes (require JWT authentication)
+router.use(authenticateJWT);
 
-// Create a new API key for authenticated user (JWT required)
-router.post('/apikey', authenticateJWT, createApiKey);
+router.get('/me', getCurrentUser);
+router.post('/logout', logoutUser);
+router.get('/apikey', getApiKey);
+router.post('/apikey', createApiKey);
 
-// Get current user info from JWT
-router.get('/me', authenticateJWT, (req, res) => {
-    res.status(200).json({ user: (req as any).jwtUser });
-});
-
-export default router; 
+export default router;

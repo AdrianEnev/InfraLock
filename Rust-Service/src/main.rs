@@ -1,10 +1,10 @@
 use moka::sync::Cache;
 use std::time::Duration;
-
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use dotenv::dotenv;
 
 mod config;
 mod errors;
@@ -22,6 +22,10 @@ use crate::services::background_updater::{BackgroundUpdater, BackgroundUpdaterCo
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load .env file
+    dotenv().ok();
+    
+    // Initialize tracing early to capture any startup logs
     
     // Initialize tracing
     tracing_subscriber::registry()
