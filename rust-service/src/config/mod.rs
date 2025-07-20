@@ -44,7 +44,7 @@ impl Default for Settings {
         Settings {
             server: ServerSettings {
                 host: "0.0.0.0".to_string(),
-                port: 3000,
+                port: 6000,
             },
             maxmind: MaxmindSettings {
                 db_path: PathBuf::from("data/GeoLite2-City.mmdb"),
@@ -68,8 +68,9 @@ impl Default for Settings {
 impl Settings {
     pub fn new() -> Result<Self, config::ConfigError> {
         let settings = config::Config::builder()
+            // Set default values that will be used if environment variables are not set
             .set_default("server.host", "0.0.0.0")?
-            .set_default("server.port", 3000)?
+            .set_default("server.port", 6000)?
             .set_default("maxmind.db_path", "data/GeoLite2-City.mmdb")?
             .set_default("maxmind.asn_db_path", "data/providers/GeoLite2-ASN.mmdb")?
             .set_default("vpn_detector.db_path", "data/vpns/ipv4.txt")?

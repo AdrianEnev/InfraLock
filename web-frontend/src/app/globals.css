@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@100..800&display=swap');
+@import "tailwindcss";
+
+@theme {
+    --font-sora: "Sora", sans-serif; 
+  }
+
+@theme {
+    --breakpoint-3xs: 25rem;
+    --breakpoint-2xs: 27.5rem;
+    --breakpoint-xs: 30rem;
+    --breakpoint-3xl: 112rem;
+    --breakpoint-4xl: 126rem;
+    --breakpoint-5xl: 140rem;
+}
+
+html,
+body {
+    @apply bg-[#282828] text-[#ededed] font-sora overflow-x-hidden overscroll-none;
+
+    /* .svg-background {
+        @apply bg-[url('')] bg-no-repeat bg-center bg-cover;
+    } */
+
+    .basic-box {
+        @apply bg-[#ededed] shadow-md rounded-md border border-gray-200;
+    }
+
+    .basic-button {
+        @apply bg-[#ededed] shadow-2xl border border-blue-300 transition-colors duration-300 rounded-2xl hover:bg-blue-100 hover:text-gray-500 active:opacity-40 
+    }
+}
+

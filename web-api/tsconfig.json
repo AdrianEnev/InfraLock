@@ -1,0 +1,29 @@
+{
+    "compilerOptions": {
+      "target": "ES6",
+      "module": "commonjs",
+      "outDir": "./dist",
+      "strict": true,
+      "esModuleInterop": true,
+      "allowJs": true,
+      "checkJs": false,
+      "resolveJsonModule": true,
+      "allowSyntheticDefaultImports": true,
+      "baseUrl": "./src",
+      "paths": {
+        "@config/*": ["config/*"],
+        "@middleware/*": ["middleware/*"],
+        "@routes/*": ["routes/*"],
+        "@services/*": ["services/*"],
+        "@utils/*": ["utils/*"],
+        "@models/*": ["models/*"],
+        "@errors/*": ["errors/*"],
+      }
+    },
+    "include": ["*.ts", "**/*.ts"],
+    "exclude": ["node_modules", "dist"],
+    "ts-node": {
+      "files": true
+    }
+  }
+  

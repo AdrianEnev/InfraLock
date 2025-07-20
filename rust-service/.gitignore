@@ -1,0 +1,43 @@
+# IDE specific
+/.idea/
+/.vscode/
+*.swp
+*.swo
+
+# OS generated files
+/.DS_Store
+/.DS_Store?
+/._*
+/.Spotlight-V100
+/.Trashes
+/ehthumbs.db
+/Thumbs.db
+
+# Cargo specific
+/Cargo.lock
+
+# Build output
+/**/*.rs.bk
+/target/
+
+# Debug logs
+*.log
+
+# Environmental variables
+/.env
+
+# GeoIP config
+/config/GeoIP.conf
+
+# Databases
+/data/GeoLite2-City.mmdb
+/data/providers/GeoLite2-ASN.mmdb
+/data/vpns/ipv4.txt
+/data/proxies/http.txt
+/data/proxies/socks4.txt
+/data/proxies/socks5.txt
+/data/tor/exit-addresses.txt
+/data/tmp_update/
+
+# Ignore ip_ranges
+/data/ip_ranges/
