@@ -1,43 +1,8 @@
-# Environmental variables
-/.env
-
-# GeoIP config
-/config/GeoIP.conf
-
-# MaxMind database
-/data/GeoLite2-City.mmdb
-
-# Providers database
-/data/providers/GeoLite2-ASN.mmdb
-
-# VPN database
-/data/vpns/ipv4.txt
-
-# Proxy database
-/data/proxies/http.txt
-/data/proxies/socks4.txt
-/data/proxies/socks5.txt
-
-# Tor nodes database
-/data/tor/exit-addresses.txt
-
-# Ignore ip_ranges
-/data/ip_ranges/
-
-# Cargo specific
-/Cargo.lock
-
 # IDE specific
 /.idea/
 /.vscode/
 *.swp
 *.swo
-
-# Build output
-/**/*.rs.bk
-
-# Debug logs
-*.log
 
 # OS generated files
 /.DS_Store
@@ -48,6 +13,31 @@
 /ehthumbs.db
 /Thumbs.db
 
-# Rust specific
-/target/
+# Cargo specific
+/Cargo.lock
+
+# Build output
 /**/*.rs.bk
+/target/
+
+# Debug logs
+*.log
+
+# Environmental variables
+/.env
+
+# GeoIP config
+/config/GeoIP.conf
+
+# Databases
+/data/GeoLite2-City.mmdb
+/data/providers/GeoLite2-ASN.mmdb
+/data/vpns/ipv4.txt
+/data/proxies/http.txt
+/data/proxies/socks4.txt
+/data/proxies/socks5.txt
+/data/tor/exit-addresses.txt
+/data/tmp_update/
+
+# Ignore ip_ranges
+/data/ip_ranges/
