@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { registerUser, loginUser, getApiKey, createApiKey } from '../controllers/userController';
-import { authenticateJWT } from '../middlewares/auth';
+import { authenticateJWT } from '../middleware/auth';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.post('/apikey', authenticateJWT, createApiKey);
 
 // Get current user info from JWT
 router.get('/me', authenticateJWT, (req, res) => {
-  res.status(200).json({ user: (req as any).jwtUser });
+    res.status(200).json({ user: (req as any).jwtUser });
 });
 
 export default router; 

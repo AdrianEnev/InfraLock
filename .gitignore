@@ -25,3 +25,4 @@ Thumbs.db
 coverage/
 
 /generated/prisma
+client/

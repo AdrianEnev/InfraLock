@@ -1,9 +1,11 @@
 import express, { Application, Request, Response } from 'express';
 import dotenv from 'dotenv';
 import userRoutes from './routes/user';
-import { globalErrorHandler } from './middlewares/globalErrorHandler';
+import { globalErrorHandler } from './middleware/globalErrorHandler';
 
-dotenv.config();
+dotenv.config({
+    quiet: true
+});
 
 const app: Application = express();
 
@@ -13,7 +15,7 @@ app.use(globalErrorHandler());
 
 // Example root route
 app.get('/', (req: Request, res: Response) => {
-  res.json({ message: 'API is running' });
+    res.json({ message: 'API is running' });
 });
 
 export default app;
