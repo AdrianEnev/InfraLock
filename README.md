@@ -1,102 +1,103 @@
-# Geolocation API
+# Geolocation System
 
-A high-performance geolocation API service built with Rust and Axum, using the MaxMind GeoIP2 database for IP geolocation lookups.
+A comprehensive geolocation solution consisting of three main components:
 
-## Features
+1. **rust-service**: High-performance geolocation service built with Rust
+2. **web-api**: REST API layer that interfaces with the rust-service
+3. **web-frontend**: User interface for interacting with the geolocation service
 
-- Fast IP geolocation lookups
-- VPN and datacenter IP detection
-- Proxy detection with type identification (HTTP/HTTPS, SOCKS4, SOCKS5)
-- Support for both single IP and CIDR range checks
-- RESTful API endpoints with JSON responses
-- Built with async/await for high concurrency
-- Structured logging with `tracing`
-- Configuration via environment variables
-- Health check endpoint
-- Self IP detection
-- Thread-safe with `Arc` and `RwLock`
+## Project Structure
 
-## Getting Started
+```
+geolocation/
+├── rust-service/    # Core geolocation service (Rust)
+├── web-api/         # Web API layer (Node.js/Express)
+└── web-frontend/    # Web interface (React/Vue/Next.js)
+```
 
-### Prerequisites
+## Prerequisites
 
-- Rust (latest stable version)
+- Docker and Docker Compose (recommended)
+- Node.js 16+ (for web-api and web-frontend)
+- Rust (latest stable version, for rust-service development)
 - MaxMind GeoLite2 City database (MMDB format)
 - VPN/Datacenter IP database (text file with CIDR ranges)
 - Proxy IP lists (text files with IP:PORT format)
 
-### Installation
+## Quick Start with Docker
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd geolocation
-   ```
+The easiest way to get started is using Docker Compose:
 
-2. Download the required database files and place them in the `data` directory:
-   ```bash
-   mkdir -p data/proxies
-   # Download GeoLite2-City.mmdb from MaxMind and place it in the data/ directory
-   # Place your VPN/Datacenter IP list in data/vpns/ipv4.txt
-   # Place your proxy lists in:
-   # - data/proxies/http.txt (HTTP/HTTPS proxies)
-   # - data/proxies/socks4.txt (SOCKS4 proxies)
-   # - data/proxies/socks5.txt (SOCKS5 proxies)
-   ```
+```bash
+# Clone the repository
+git clone <repository-url>
+cd geolocation
 
-3. Build the application:
-   ```bash
-   cargo build --release
-   ```
+# Copy and configure environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Start all services
+docker-compose up -d
+```
+
+## Manual Setup
+
+### 1. rust-service
+
+See [rust-service/README.md](rust-service/README.md) for detailed setup instructions.
+
+### 2. web-api
+
+See [web-api/README.md](web-api/README.md) for detailed setup instructions.
+
+### 3. web-frontend
+
+See [web-frontend/README.md](web-frontend/README.md) for detailed setup instructions.
 
 ## Configuration
 
-Configuration can be provided via environment variables. The following variables are available:
+Configuration is handled through environment variables. Copy `.env.example` to `.env` and modify as needed.
 
-- `GEO_SERVER__HOST`: Server host (default: `0.0.0.0`)
-- `GEO_SERVER__PORT`: Server port (default: `3000`)
-- `GEO_MAXMIND__DB_PATH`: Path to the MaxMind database file (default: `data/GeoLite2-City.mmdb`)
-- `GEO_VPN_DETECTOR__DB_PATH`: Path to the VPN/Datacenter IP database file (default: `data/vpns/ipv4.txt`)
-- `GEO_PROXY_DETECTOR__HTTP_DB_PATH`: Path to the HTTP/HTTPS proxy list (default: `data/proxies/http.txt`)
-- `GEO_PROXY_DETECTOR__SOCKS4_DB_PATH`: Path to the SOCKS4 proxy list (default: `data/proxies/socks4.txt`)
-- `GEO_PROXY_DETECTOR__SOCKS5_DB_PATH`: Path to the SOCKS5 proxy list (default: `data/proxies/socks5.txt`)
-- `RUST_LOG`: Logging level (default: `geolocation=info,tower_http=info`)
+### Common Environment Variables
 
-## Running the Server
+- `NODE_ENV`: Environment (development/production)
+- `PORT`: Port for web services
+- `RUST_LOG`: Logging level for rust-service
 
-```bash
-# Run with default settings
-cargo run --release
+### Service-Specific Configuration
 
-# Or with custom configuration
-GEO_SERVER__PORT=8080 \
-GEO_MAXMIND__DB_PATH=/path/to/GeoLite2-City.mmdb \
-GEO_VPN_DETECTOR__DB_PATH=/path/to/vpn_networks.txt \
-GEO_PROXY_DETECTOR__HTTP_DB_PATH=/path/to/http_proxies.txt \
-GEO_PROXY_DETECTOR__SOCKS4_DB_PATH=/path/to/socks4_proxies.txt \
-GEO_PROXY_DETECTOR__SOCKS5_DB_PATH=/path/to/socks5_proxies.txt \
-cargo run --release
-```
+Each component has its own configuration. Please refer to the respective README files:
 
-## API Endpoints
+- [rust-service configuration](rust-service/README.md#configuration)
+- [web-api configuration](web-api/README.md#configuration)
+- [web-frontend configuration](web-frontend/README.md#configuration)
 
-### 1. Health Check
+## Development
 
-Check if the service is running.
+### Starting Services Individually
 
-```http
-GET /api/health
-```
+1. Start rust-service:
+   ```bash
+   cd rust-service
+   cargo run --release
+   ```
 
-**Example Response:**
-```json
-{
-  "status": "ok",
-  "version": "0.1.0"
-}
-```
+2. Start web-api:
+   ```bash
+   cd web-api
+   npm install
+   npm start
+   ```
 
-### 2. IP Lookup
+3. Start web-frontend:
+   ```bash
+   cd web-frontend
+   npm install
+   npm run dev
+   ```
+
+## Ip Lookup
 
 Get geolocation information for a specific IP address.
 
@@ -116,7 +117,13 @@ GET /api/lookup/8.8.8.8
 ```json
 {
   "ip": "8.8.8.8",
-  "is_vpn_or_datacenter": true,
+  "is_vpn_or_datacenter": false,
+  "is_proxy": false,
+  "proxy_type": null,
+  "is_tor_exit_node": false,
+  "threat_score": 0,
+  "threat_details": [],
+  "recommended_action": "allow",
   "geo_info": {
     "city": {
       "names": {
@@ -136,57 +143,53 @@ GET /api/lookup/8.8.8.8
   "asn_info": {
     "autonomous_system_number": 15169,
     "autonomous_system_organization": "Google LLC"
-  },
-  "is_proxy": false,
-  "proxy_type": null
+  }
 }
 ```
 
-### 3. Self Lookup
+### Self Lookup
 
-Get geolocation information for the client's IP address.
+Get geolocation information for the client making the request. This endpoint is designed to work behind proxies and load balancers by checking the following HTTP headers in order:
 
-```http
-GET /api/lookup/self
-```
+1. `X-Forwarded-For` - Used when behind a reverse proxy or load balancer. If multiple IPs are present (comma-separated), the first IP in the list is used.
+2. `X-Real-IP` - An alternative header that may contain the original client IP.
 
 **Example Request:**
 ```http
 GET /api/lookup/self
+X-Forwarded-For: 203.0.113.1, 198.51.100.1
 ```
 
 **Example Response:**
 ```json
 {
-  "ip": "192.168.1.1",
+  "ip": "203.0.113.1",
   "is_vpn_or_datacenter": false,
+  "is_proxy": false,
+  "proxy_type": null,
+  "is_tor_exit_node": false,
+  "threat_score": 100,
+  "threat_details": [
+    "IP is associated with a data center"
+  ],
+  "recommended_action": "block",
   "geo_info": {
-    "city": {
-      "names": {
-        "en": "New York"
-      }
-    },
-    "country": {
-      "names": {
-        "en": "United States"
-      }
-    },
-    "location": {
+    "city": "New York",
+    "country": "United States",
+    "coordinates": {
       "latitude": 40.7128,
       "longitude": -74.006
     }
   },
   "asn_info": {
-    "autonomous_system_number": 12345,
-    "autonomous_system_organization": "Example ISP"
-  },
-  "is_proxy": false,
-  "proxy_type": null
+    "asn": 15169,
+    "org": "Google LLC"
+  }
 }
 ```
 
-### 4. Proxy Check
+**Note:** The self-lookup endpoint requires either `X-Forwarded-For` or `X-Real-IP` header to be set. If neither header is present, the request will fail with a 400 Bad Request error.
 
-Check if an IP is a known proxy and get its type.
+### License
 
-```
+MIT
