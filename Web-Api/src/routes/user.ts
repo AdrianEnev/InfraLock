@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { registerUser, loginUser, getApiKey } from '../controllers/userController';
-import { authenticateApiKey, authenticateJWT } from '../middlewares/auth';
+import { registerUser, loginUser, getApiKey, createApiKey } from '../controllers/userController';
+import { authenticateJWT } from '../middlewares/auth';
 
 const router = Router();
 
@@ -10,10 +10,13 @@ router.post('/register', registerUser);
 // Login user
 router.post('/login', loginUser);
 
-// Get API key for authenticated user
-router.get('/apikey', authenticateApiKey, getApiKey);
+// Get API key for authenticated user (JWT required)
+router.get('/apikey', authenticateJWT, getApiKey);
 
-// Example: Get current user info from JWT
+// Create a new API key for authenticated user (JWT required)
+router.post('/apikey', authenticateJWT, createApiKey);
+
+// Get current user info from JWT
 router.get('/me', authenticateJWT, (req, res) => {
   res.status(200).json({ user: (req as any).jwtUser });
 });

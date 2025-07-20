@@ -60,4 +60,17 @@ export const getApiKey = async (req: Request, res: Response, next: NextFunction)
   } catch (err) {
     next(err);
   }
+};
+
+export const createApiKey = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return next(new Unauthorized('Unauthorized'));
+    }
+    const apiKey = await userService.generateAndSaveApiKey(user.id);
+    res.status(201).json({ apiKey });
+  } catch (err) {
+    next(err);
+  }
 }; 

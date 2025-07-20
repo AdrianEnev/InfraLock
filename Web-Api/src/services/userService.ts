@@ -27,4 +27,13 @@ export const authenticateUser = async (email: string, password: string) => {
 export const getApiKey = async (userId: string) => {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   return user?.apiKey || null;
+};
+
+export const generateAndSaveApiKey = async (userId: string) => {
+  const newApiKey = generateApiKey();
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { apiKey: newApiKey },
+  });
+  return user.apiKey;
 }; 
