@@ -11,7 +11,7 @@ use axum::extract::Request;
 use crate::{
     errors::{
         validation::{
-            extract_client_ip, validate_ip, IpValidationError
+            extract_client_ip, validate_ip
         }, AppError
     }, services::lookup_service::LookupService
 };
@@ -23,6 +23,7 @@ use percent_encoding::{percent_decode_str};
 use crate::models::threat_score::ThreatScore;
 use crate::ip_lookup::IpLookupService;
 use moka::sync::Cache;
+use crate::clients::web_api::WebApiClient;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -30,6 +31,7 @@ pub struct AppState {
     pub asn_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>, // ASN DB reader
     pub lookup_cache: Arc<Cache<IpAddr, LookupResponse>>,
     pub ip_lookup_service: Arc<IpLookupService>,
+    pub web_api_client: Arc<WebApiClient>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -334,6 +336,22 @@ pub async fn health_check() -> Json<HealthResponse> {
         status: "ok".to_string(),
         version: env!("CARGO_PKG_VERSION"),
     })
+}
+
+// Metrics handler
+pub async fn metrics() -> Result<impl axum::response::IntoResponse, axum::http::StatusCode> {
+    // For now, return empty metrics
+    let metrics = Vec::new();
+    
+    match String::from_utf8(metrics) {
+        Ok(metrics_string) => Ok((
+            axum::response::AppendHeaders([
+                (axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4"),
+            ]),
+            metrics_string,
+        )),
+        Err(_) => Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR),
+    }
 }
 
 // Unit tests

@@ -3,13 +3,20 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import userRoutes from './routes/user';
+import internalRoutes from './routes/internal';
+import healthRoutes from './routes/health';
+import lookupRoutes from './routes/lookup';
 import { globalErrorHandler } from './middleware/globalErrorHandler';
+import { cache } from './utils/redis';
 
 dotenv.config({
     quiet: true
 });
 
 const app: Application = express();
+
+// Trust first proxy (important for correct IP resolution when behind a proxy)
+app.set('trust proxy', true);
 
 // Enable CORS with specific options
 const allowedOrigins: string[] = [
@@ -24,20 +31,20 @@ const corsOptions = {
         if (!origin) return callback(null, true);
         
         const isAllowed = allowedOrigins.some(allowedOrigin => 
-        origin === allowedOrigin || 
-        origin.startsWith(allowedOrigin.replace(/^https?:\/\//, ''))
+            origin === allowedOrigin || 
+            origin.startsWith(allowedOrigin.replace(/^https?:\/\//, ''))
         );
         
         if (isAllowed) {
-        callback(null, true);
+            callback(null, true);
         } else {
-        console.error('Not allowed by CORS:', origin);
-        callback(new Error('Not allowed by CORS'));
+            console.error('Not allowed by CORS:', origin);
+            callback(new Error('Not allowed by CORS'));
         }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-real-ip', 'x-forwarded-for'],
     exposedHeaders: ['set-cookie']
 };
 
@@ -54,10 +61,39 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 // API routes
 app.use('/api/users', userRoutes);
+app.use('/api/lookup', lookupRoutes);
+app.use('/internal', internalRoutes);
 
-// Health check endpoint
-app.get('/health', (_req: Request, res: Response) => {
-    res.status(200).json({ status: 'ok' });
+// Health check routes
+app.use('/health', healthRoutes);
+
+// Add Redis health check endpoint
+app.get('/health/redis', async (_req: Request, res: Response) => {
+  try {
+    const testKey = 'health:test';
+    const testValue = { status: 'ok', timestamp: new Date().toISOString() };
+    
+    await cache.set(testKey, testValue, { ttl: 60 });
+    const cachedValue = await cache.get(testKey);
+    
+    if (!cachedValue) {
+      throw new Error('Failed to read from cache');
+    }
+    
+    res.status(200).json({
+      status: 'ok',
+      redis: 'connected',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Redis health check failed:', error);
+    res.status(503).json({
+      status: 'error',
+      redis: 'disconnected',
+      error: 'Redis health check failed',
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // Global error handler

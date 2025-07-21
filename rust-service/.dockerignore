@@ -1,0 +1,10 @@
+target/
+**/*.rs.bk
+Cargo.lock
+.env
+.git
+.gitignore
+*.md
+.DS_Store
+.vscode
+.idea
