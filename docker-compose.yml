@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # Web Frontend (Next.js)
+  web-frontend:
+    build:
+      context: ./web-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+    depends_on:
+      - web-api
+    networks:
+      - geolocation-network
+
+  # Web API Service (Node.js/Express)
+  web-api:
+    build:
+      context: ./web-api
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./web-api/.env
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/geolocation
+    depends_on:
+      - db
+    networks:
+      - geolocation-network
+
+  # Rust Service
+  rust-service:
+    build:
+      context: ./rust-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./rust-service/.env
+    environment:
+      - RUST_LOG=debug
+      - WEB_API_URL=http://web-api:3000
+    depends_on:
+      - web-api
+    networks:
+      - geolocation-network
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=geolocation
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - geolocation-network
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    networks:
+      - geolocation-network
+
+networks:
+  geolocation-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

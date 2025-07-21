@@ -1,23 +1,30 @@
-use moka::sync::Cache;
-use std::time::Duration;
 use std::sync::Arc;
+use std::time::Duration;
+use moka::sync::Cache;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use dotenv::dotenv;
 
+use crate::clients::web_api::{WebApiClient, WebApiClientConfig};
+use crate::middleware::api_key_auth::{ApiKeyAuthState};
+
+mod alerting;
+mod clients;
 mod config;
 mod errors;
 mod handlers;
-mod routes;
+mod ip_lookup;
+mod middleware;
 mod models;
+mod monitoring;
+mod routes;
 mod services;
 mod utils;
-mod ip_lookup;
 
 use crate::config::Settings;
 use crate::handlers::AppState;
-use crate::routes::create_router;
+use crate::routes::{create_router, metrics::metrics_routes};
 use crate::services::background_updater::{BackgroundUpdater, BackgroundUpdaterConfig};
 
 #[tokio::main]
@@ -25,23 +32,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load .env file
     dotenv().ok();
     
-    // Initialize tracing early to capture any startup logs
-    
-    // Initialize tracing
-    tracing_subscriber::registry()
-    .with(
-        tracing_subscriber::fmt::layer()
-            .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339())
-            .with_thread_ids(true)
-            .with_target(false) // Disable target to reduce noise
-            .with_level(true)
-            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
-    )
-    .with(
-        tracing_subscriber::EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| "debug".into())
-    )
+    // Configure logging format based on environment
+    tracing_subscriber::fmt()
+    .with_env_filter(EnvFilter::from_default_env()
+        .add_directive("debug".parse().unwrap())
+        .add_directive("hyper=info".parse().unwrap())
+        .add_directive("tower_http=info".parse().unwrap()))
+    .with_target(true)
+    .with_thread_ids(true)
     .init();
+
+    tracing::info!("Starting geolocation service");
+    tracing::debug!("Debug logging is enabled");
 
     // Load configuration
     let settings = Settings::new()?;
@@ -84,6 +86,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ip_lookup_service = Arc::new(ip_lookup::IpLookupService::new(ip_lookup_config));
     ip_lookup_service.start_background_updates();
 
+    // Initialize Web API client for API key validation
+    let web_api_config = WebApiClientConfig::default();
+    let web_api_client = Arc::new(WebApiClient::new(web_api_config));
+
     // In main.rs
     let ttl_seconds = std::env::var("CACHE_TTL_SECONDS")
         .ok()
@@ -101,12 +107,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState { 
         maxmind_reader: Arc::new(RwLock::new(reader)),
         asn_reader: Arc::new(RwLock::new(asn_reader)),
-        lookup_cache: lookup_cache,
-        ip_lookup_service: ip_lookup_service,
+        lookup_cache,
+        ip_lookup_service,
+        web_api_client: web_api_client.clone(),  // Clone here for AppState
     };
 
-    // Create router
-    let app: axum::Router = create_router(state);
+    // Create auth state with a clone of web_api_client
+    let auth_state = Arc::new(ApiKeyAuthState {
+        web_api_client: web_api_client.clone(),  // Clone here for ApiKeyAuthState
+    });
+    
+    // Create the main application router
+    let app = create_router(state, auth_state);
+    
+    // Create the metrics router
+    let metrics_router = metrics_routes();
+    
+    // Combine both routers
+    let app = app.merge(metrics_router);
 
     // Run the server
     let addr = settings.server_addr();
