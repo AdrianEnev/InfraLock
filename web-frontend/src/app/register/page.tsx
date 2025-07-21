@@ -1,68 +1,163 @@
-'use client'
-import postUser from "@hooks/users/postUser"
-import { useRouter } from "next/navigation";
-import { useState } from "react"
+'use client';
+import postUser from '@hooks/users/postUser';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 
-function RegisterPage() {
-
+export default function RegisterPage() {
     const router = useRouter();
-    const [username, setUsername] = useState("")
-    const [email, setEmail] = useState("")
-    const [password, setPassword] = useState("")
+    const searchParams = useSearchParams();
+    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const redirectTo = searchParams?.get('from') || '/';
 
-    // Handle register form submission
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        if (!email || !password) {
+        
+        if (!username || !email || !password || !confirmPassword) {
+            setError('Please fill in all fields');
             return;
         }
 
-        const user = await postUser(username, email, password);
-        if (user) {
-            router.replace('/login')
-        } else {
-            console.error("Registration failed");
+        if (password !== confirmPassword) {
+            setError("Passwords don't match");
+            return;
         }
-    }
+
+        setIsLoading(true);
+        setError('');
+
+        try {
+            const user = await postUser(username, email, password);
+            if (user) {
+                router.push(`/login?from=${encodeURIComponent(redirectTo)}`);
+            } else {
+                setError('Registration failed. Please try again.');
+            }
+        } catch (err) {
+            console.error('Registration error:', err);
+            setError('An error occurred during registration. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
-        <div className="w-screen h-screen pt-3 px-3">
-            <div className="w-full h-full flex flex-col items-center justify-center mt-[-10%]">
+        <div className="min-h-screen flex justify-center px-4 pt-[5%] sm:px-6 lg:px-8">
+            <div className="max-w-md w-full space-y-8">
+                <div>
+                    <h2 className="mt-6 text-center text-3xl text-blue-400 font-extrabold">
+                        Create a new account
+                    </h2>
+                </div>
+                
+                {error && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                        <span className="block sm:inline">{error}</span>
+                    </div>
+                )}
 
-                <p className="text-3xl font-medium">Register</p>
-
-                <form className="w-[90%] md:w-1/3">
-                    <div className="mt-6">
-                        <label className="block text-sm font-medium ">Username</label>
-                        <input type="text" className="mt-1 px-3 py-2 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-red-400 focus:border-red-400 sm:text-sm" 
-                            onChange={(e) => setUsername(e.target.value)}
-                        />
+                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                    <div className="rounded-md shadow-sm space-y-4">
+                        <div>
+                            <label htmlFor="username" className="sr-only">
+                                Username
+                            </label>
+                            <input
+                                id="username"
+                                name="username"
+                                type="text"
+                                autoComplete="username"
+                                required
+                                className="appearance-none rounded relative block w-full px-3 py-2 border"
+                                placeholder="Username"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                disabled={isLoading}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="email-address" className="sr-only">
+                                Email address
+                            </label>
+                            <input
+                                id="email-address"
+                                name="email"
+                                type="email"
+                                autoComplete="email"
+                                required
+                                className="appearance-none rounded relative block w-full px-3 py-2 border"
+                                placeholder="Email address"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                disabled={isLoading}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="password" className="sr-only">
+                                Password
+                            </label>
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                autoComplete="new-password"
+                                required
+                                className="appearance-none rounded relative block w-full px-3 py-2 border"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                disabled={isLoading}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="confirm-password" className="sr-only">
+                                Confirm Password
+                            </label>
+                            <input
+                                id="confirm-password"
+                                name="confirm-password"
+                                type="password"
+                                autoComplete="new-password"
+                                required
+                                className="appearance-none rounded relative block w-full px-3 py-2 border"
+                                placeholder="Confirm Password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                disabled={isLoading}
+                            />
+                        </div>
                     </div>
 
-                    <div className="mt-4">
-                        <label className="block text-sm font-medium ">Email</label>
-                        <input type="email" className="mt-1 px-3 py-2 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-red-400 focus:border-red-400 sm:text-sm" 
-                            onChange={(e) => setEmail(e.target.value)}
-                        />
+                    <div>
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className={`group relative w-full flex justify-center py-2 px-4 border rounded-md ${
+                                isLoading ? 'opacity-70 cursor-not-allowed' : ''
+                            }`}
+                        >
+                            {isLoading ? 'Creating account...' : 'Register'}
+                        </button>
                     </div>
-
-                    <div className="mt-4">
-                        <label className="block text-sm font-medium ">Password</label>
-                        <input type="password" className="mt-1 px-3 py-2 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-red-400 focus:border-red-400 sm:text-sm" 
-                            onChange={(e) => setPassword(e.target.value)}
-                        />
-                    </div>
-
-                    <button type="submit" className="mt-6 w-full bg-red-400 text-white font-semibold py-2 px-4 rounded-md hover:opacity-60"
-                        onClick={handleSubmit}
-                    >
-                        Register
-                    </button>
                 </form>
+                
+                <div className="text-center">
+                    <p className="mt-2">
+                        Already have an account?{' '}
+                        <button 
+                            type="button" 
+                            onClick={() => router.push('/login')} 
+                            className="font-medium text-blue-400 hover:text-blue-500"
+                        >
+                            Sign in
+                        </button>
+                    </p>
+                </div>
             </div>
         </div>
-    )
+    );
 }
-
-export default RegisterPage

@@ -13,32 +13,32 @@ const app: Application = express();
 
 // Enable CORS with specific options
 const allowedOrigins: string[] = [
-  'http://localhost:3000',
-  'http://localhost:4000',
-  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
+    'http://localhost:3000',
+    'http://localhost:4000',
+    ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
 ];
 
 const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const isAllowed = allowedOrigins.some(allowedOrigin => 
-      origin === allowedOrigin || 
-      origin.startsWith(allowedOrigin.replace(/^https?:\/\//, ''))
-    );
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.error('Not allowed by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
-  exposedHeaders: ['set-cookie']
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        const isAllowed = allowedOrigins.some(allowedOrigin => 
+        origin === allowedOrigin || 
+        origin.startsWith(allowedOrigin.replace(/^https?:\/\//, ''))
+        );
+        
+        if (isAllowed) {
+        callback(null, true);
+        } else {
+        console.error('Not allowed by CORS:', origin);
+        callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+    exposedHeaders: ['set-cookie']
 };
 
 // Middleware
@@ -48,8 +48,8 @@ app.use(cookieParser());
 
 // Logging middleware
 app.use((req: Request, _res: Response, next: NextFunction) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
 });
 
 // API routes
@@ -57,7 +57,7 @@ app.use('/api/users', userRoutes);
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok' });
+    res.status(200).json({ status: 'ok' });
 });
 
 // Global error handler

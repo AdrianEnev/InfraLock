@@ -44,10 +44,10 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex justify-center px-4 pt-[10%] sm:px-6 lg:px-8">
+        <div className="min-h-screen flex justify-center px-4 pt-[5%] sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
                 <div>
-                    <h2 className="mt-6 text-center text-3xl text-red-400 font-extrabold">
+                    <h2 className="mt-6 text-center text-3xl text-blue-400 font-extrabold">
                         Sign in to your account
                     </h2>
                 </div>
@@ -111,7 +111,7 @@ export default function LoginPage() {
                         </div>
 
                         <div>
-                            <button type="button" onClick={() => router.push('/forgot-password')} className="font-medium text-red-400">
+                            <button type="button" onClick={() => router.push('/forgot-password')} className="font-medium text-blue-400">
                                 Forgot your password?
                             </button>
                         </div>

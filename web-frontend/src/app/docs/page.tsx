@@ -1,6 +1,8 @@
 function DocsPage() {
     return (
-        <div>Documentation will be displayed here</div>
+        <div className="w-screen h-screen pt-[5%] px-3">
+            <p className="text-2xl text-center">Documentation will be displayed here</p>
+        </div>
     )
 }
 

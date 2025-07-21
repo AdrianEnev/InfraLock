@@ -20,7 +20,7 @@ function AccountPage() {
     return (
         <div className="py-[3%] px-[5%]">
             <p className="font-semibold text-3xl">Account</p>
-            <div className="w-full h-[2px] bg-red-400 my-1 max-w-[30%]"></div>
+            <div className="w-full h-[2px] bg-blue-400 my-1 max-w-[30%]"></div>
 
             <div className="flex flex-col gap-y-3 max-w-[30%] mt-2">
                 <div className="flex flex-row justify-between">
@@ -47,7 +47,7 @@ function AccountPage() {
                 </div>
             </div>
 
-            <button className="w-32 lg:w-44 h-10 rounded-md bg-red-400 hover:opacity-60 mt-3"
+            <button className="w-32 lg:w-44 h-10 rounded-md bg-blue-400 hover:opacity-60 mt-3"
                 onClick={() => {
                     logOut();
                 }}
