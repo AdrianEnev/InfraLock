@@ -118,11 +118,18 @@ pub enum SourceFormat {
     IpPort,
     /// Tor exit node list format
     TorExitList,
-    // Add more formats as needed
+    /// JSON array of CIDR strings
+    JsonList,
 }
 
 impl Default for SourceFormat {
     fn default() -> Self {
         Self::Default
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IpVersion {
+    V4,
+    V6,
 }

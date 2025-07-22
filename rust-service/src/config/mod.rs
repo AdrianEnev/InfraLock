@@ -47,8 +47,8 @@ impl Default for Settings {
                 port: 6000,
             },
             maxmind: MaxmindSettings {
-                db_path: PathBuf::from("data/GeoLite2-City.mmdb"),
-                asn_db_path: PathBuf::from("data/providers/GeoLite2-ASN.mmdb"),
+                db_path: PathBuf::from("data/maxmind/GeoLite2-City.mmdb"),
+                asn_db_path: PathBuf::from("data/maxmind/GeoLite2-ASN.mmdb"),
             },
             vpn_detector: VpnDetectorSettings {
                 db_path: PathBuf::from("data/vpns/ipv4.txt"),
@@ -71,8 +71,8 @@ impl Settings {
             // Set default values that will be used if environment variables are not set
             .set_default("server.host", "0.0.0.0")?
             .set_default("server.port", 6000)?
-            .set_default("maxmind.db_path", "data/GeoLite2-City.mmdb")?
-            .set_default("maxmind.asn_db_path", "data/providers/GeoLite2-ASN.mmdb")?
+            .set_default("maxmind.db_path", "data/maxmind/GeoLite2-City.mmdb")?
+            .set_default("maxmind.asn_db_path", "data/maxmind/GeoLite2-ASN.mmdb")?
             .set_default("vpn_detector.db_path", "data/vpns/ipv4.txt")?
             .set_default("proxy_detector.http_db_path", "data/proxies/http.txt")?
             .set_default("proxy_detector.socks4_db_path", "data/proxies/socks4.txt")?

@@ -88,27 +88,39 @@ impl BackgroundUpdater {
 
     /// Download, compare, and update a single file if needed.
     async fn check_one(&self, url: &str, local_path: &str, temp_dir: &TempDir) -> std::io::Result<()> {
+        // Ensure the parent directory exists
+        if let Some(parent) = std::path::Path::new(local_path).parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        
         let temp_path = temp_dir.path().join("download.tmp");
+        
+        // Download the file
         if let Err(e) = download_file(url, &temp_path).await {
-            eprintln!("[BackgroundUpdater] Download error: {}", e);
+            eprintln!("[BackgroundUpdater] Download error for {}: {}", url, e);
             return Err(e);
         }
-        let need_update = match files_differ(std::path::Path::new(local_path), &temp_path) {
-            Ok(diff) => diff,
-            Err(e) => {
-                eprintln!("[BackgroundUpdater] Compare error: {}. Will update.", e);
-                true
+        
+        // If local file doesn't exist, just move the downloaded file
+        if !std::path::Path::new(local_path).exists() {
+            return atomic_replace(&temp_path, local_path);
+        }
+        
+        // Compare files and update if different
+        match files_differ(std::path::Path::new(local_path), &temp_path) {
+            Ok(true) => {
+                println!("[BackgroundUpdater] File {} changed, updating...", local_path);
+                atomic_replace(&temp_path, local_path)
             }
-        };
-        if need_update {
-            if let Err(e) = atomic_replace(&temp_path, std::path::Path::new(local_path)) {
-                eprintln!("[BackgroundUpdater] Atomic replace error: {}", e);
-                return Err(e);
+            Ok(false) => {
+                // Files are the same, no update needed
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("[BackgroundUpdater] Compare error for {}: {}. Updating file.", local_path, e);
+                // On comparison error, update the file to be safe
+                atomic_replace(&temp_path, local_path)
             }
         }
-        Ok(())
     }
-}
-
-// NOTE: Replace the temp file path strings with actual temp file locations, e.g., /tmp/vpn.txt, or use tempfile crate for safety.
-// NOTE: Replace the URL strings in config with your actual remote file URLs.
+} 

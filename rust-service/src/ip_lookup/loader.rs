@@ -6,12 +6,15 @@ use chrono::{DateTime, Utc};
 use ipnetwork::IpNetwork;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use url::Url;
 use filetime;
 use tracing::{info, error};
 
-use crate::ip_lookup::types::{IpCategory, IpRange, IpRangeError, Result, SourceFormat};
-use crate::ip_lookup::IpRangeSource;
+use crate::ip_lookup::{
+    service::IpRangeSource,
+    types::{IpCategory, IpRange, IpRangeError, Result, SourceFormat, IpVersion},
+};
 
 /// Configuration for loading IP ranges
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,6 +64,33 @@ impl IpRangeLoader {
         source: &str,
         format: SourceFormat,
     ) -> Result<Vec<IpRange>> {
+        // For JsonList format, read the entire file and parse it as JSON
+        if format == SourceFormat::JsonList {
+            let content = tokio::fs::read_to_string(path.as_ref()).await.map_err(|e| {
+                IpRangeError::IoError(io::Error::new(
+                    e.kind(),
+                    format!("Failed to read {}: {}", path.as_ref().display(), e),
+                ))
+            })?;
+            
+            // Create a temporary source to pass to parse_ranges
+            let temp_source = IpRangeSource {
+                url: "file://".to_string() + path.as_ref().to_str().unwrap_or(""),
+                category,
+                name: source.to_string(),
+                enabled: true,
+                format: SourceFormat::JsonList,
+                ip_version: if path.as_ref().to_string_lossy().contains("_v6") {
+                    IpVersion::V6
+                } else {
+                    IpVersion::V4
+                },
+            };
+            
+            return self.parse_ranges(&content, &temp_source);
+        }
+        
+        // For other formats, use the line-by-line processing
         use tokio::io::AsyncBufReadExt;
         
         let file = tokio::fs::File::open(path.as_ref()).await.map_err(|e| {
@@ -135,6 +165,11 @@ impl IpRangeLoader {
                         error!("Failed to parse IP network at line {}: '{}'", line_num, line);
                         continue;
                     }
+                },
+                SourceFormat::JsonList => {
+                    // This should never be reached due to the early return above
+                    error!("Unexpected JsonList format in line processing loop");
+                    continue;
                 }
             };
 
@@ -171,7 +206,7 @@ impl IpRangeLoader {
         })?;
 
         // Generate a filename for this source
-        let filename = self.filename_from_url(&url_obj, source.category);
+        let filename = self.filename_from_url(&url_obj, source.category, source.ip_version);
         let filepath = self.config.data_dir.join(&filename);
         
         // Download the file
@@ -212,7 +247,105 @@ impl IpRangeLoader {
         source: &IpRangeSource,
     ) -> Result<Vec<IpRange>> {
         let mut ranges = Vec::new();
+        //info!("Starting to parse ranges for source: {} (format: {:?})", source.name, source.format);
         
+        // Handle JSON format first
+        if source.format == SourceFormat::JsonList {
+            //info!("Processing as JSON list");
+            // Try to parse as JSON array (MISP warning list format)
+            if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(content) {
+                //info!("Parsing JSON content");
+                
+                // Handle MISP warning list format ({"list": ["cidr1", "cidr2", ...]})
+                if let Some(list) = json_value.get("list").and_then(|l| l.as_array()) {
+                    info!("Found MISP warning list format with {} entries", list.len());
+                    for (i, cidr_value) in list.iter().enumerate() {
+                        if let Some(cidr) = cidr_value.as_str() {
+                            //info!("[{}] Parsing CIDR: {}", i, cidr);
+                            match cidr.parse::<IpNetwork>() {
+                                Ok(ip_net) => {
+                                    //info!("Successfully parsed network: {}", ip_net);
+                                    ranges.push(IpRange::new(
+                                        cidr.to_string(),
+                                        source.category,
+                                        &source.name,
+                                        source.format
+                                    ));
+                                }
+                                Err(e) => {
+                                    error!("Failed to parse CIDR '{}': {}", cidr, e);
+                                }
+                            }
+                        } else {
+                            error!("Expected string in MISP list at index {}", i);
+                        }
+                    }
+                    //info!("Processed {} networks from MISP warning list", ranges.len());
+                    return Ok(ranges);
+                }
+                // Handle root array format (["cidr1", "cidr2", ...])
+                else if let Some(array) = json_value.as_array() {
+                    //info!("Found root array format with {} entries", array.len());
+                    for (i, cidr_value) in array.iter().enumerate() {
+                        if let Some(cidr) = cidr_value.as_str() {
+                            //info!("[{}] Parsing CIDR: {}", i, cidr);
+                            match cidr.parse::<IpNetwork>() {
+                                Ok(ip_net) => {
+                                    //info!("Successfully parsed network: {}", ip_net);
+                                    ranges.push(IpRange::new(
+                                        cidr.to_string(),
+                                        source.category,
+                                        &source.name,
+                                        source.format
+                                    ));
+                                }
+                                Err(e) => {
+                                    error!("Failed to parse CIDR '{}': {}", cidr, e);
+                                }
+                            }
+                        } else {
+                            error!("Expected string in array at index {}", i);
+                        }
+                    }
+                    //info!("Processed {} networks from root array", ranges.len());
+                    return Ok(ranges);
+                } else {
+                    info!("JSON is not in a recognized format, falling back to text parsing");
+                }
+            } else {
+                info!("Content is not valid JSON, falling back to text parsing");
+            }
+            
+            // If we get here, it's not in MISP format, try parsing as plain text
+            info!("Falling back to plain text parsing");
+            for (i, line) in content.lines().enumerate() {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                
+                info!("[{}] Parsing line: {}", i, line);
+                match line.parse::<IpNetwork>() {
+                    Ok(ip_net) => {
+                        info!("Successfully parsed network: {}", ip_net);
+                        ranges.push(IpRange::new(
+                            ip_net.to_string(),
+                            source.category,
+                            &source.name,
+                            source.format
+                        ));
+                    }
+                    Err(e) => {
+                        error!("Failed to parse line '{}' as network: {}", line, e);
+                    }
+                }
+            }
+            
+            info!("Processed {} networks from plain text", ranges.len());
+            return Ok(ranges);
+        }
+        
+        // Handle other formats
         for (line_num, line) in content.lines().enumerate() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
@@ -241,11 +374,11 @@ impl IpRangeLoader {
                 },
                 SourceFormat::IpPort => {
                     // Extract IP from IP:PORT format
-                    if let Some(ip_part) = line.split(':').next() {
-                        if let Ok(ip) = ip_part.parse::<IpAddr>() {
+                    if let Some(ip_str) = line.split(':').next() {
+                        if let Ok(ip) = ip_str.parse::<IpAddr>() {
                             let network = match ip {
-                                IpAddr::V4(_) => format!("{}/32", ip),
-                                IpAddr::V6(_) => format!("{}/128", ip),
+                                IpAddr::V4(_) => format!("{}/32", ip_str),
+                                IpAddr::V6(_) => format!("{}/128", ip_str),
                             };
                             ranges.push(IpRange::new(network, source.category, &source.name, source.format));
                         } else {
@@ -266,7 +399,11 @@ impl IpRangeLoader {
                     } else {
                         error!("Failed to parse IP network at line {}: '{}'", line_num + 1, line);
                     }
-                }
+                },
+                SourceFormat::JsonList => {
+                    // This should never be reached due to the early return above
+                    error!("Unexpected JsonList format in line processing loop");
+                },
             }
         }
     
@@ -293,11 +430,23 @@ impl IpRangeLoader {
         }
     }
 
-    /// Generate a filename from a URL and category
-    pub fn filename_from_url(&self, url: &Url, category: IpCategory) -> String {
-        let domain = url.host_str().unwrap_or("unknown");
-        let path = url.path().trim_start_matches('/').replace('/', "_");
-        format!("{}_{}_{}.txt", category, domain, path)
+    /// Generate a filename from a URL, category and IP version
+    pub fn filename_from_url(&self, _url: &Url, category: IpCategory, ip_version: IpVersion) -> String {
+        // Map category to a simple string representation
+        let category_str = match category {
+            IpCategory::Vpn => "vpns",
+            IpCategory::ProxyHttp => "http_proxies",
+            IpCategory::ProxySocks4 => "socks4_proxies",
+            IpCategory::ProxySocks5 => "socks5_proxies",
+            IpCategory::TorExitNode => "tor_exit_nodes",
+            _ => "ranges",
+        };
+        
+        // Add IP version
+        match ip_version {
+            IpVersion::V4 => format!("{}_v4.txt", category_str),
+            IpVersion::V6 => format!("{}_v6.txt", category_str),
+        }
     }
 
     /// Download a file from a URL
@@ -307,7 +456,10 @@ impl IpRangeLoader {
             .get(url)
             .send()
             .await
-            .map_err(|e| IpRangeError::IoError(io::Error::new(io::ErrorKind::Other, e)))?;
+            .map_err(|e| IpRangeError::IoError(io::Error::new(
+                io::ErrorKind::Other,
+                e,
+            )))?;
 
         if !response.status().is_success() {
             return Err(IpRangeError::IoError(io::Error::new(
@@ -319,6 +471,9 @@ impl IpRangeLoader {
         response
             .text()
             .await
-            .map_err(|e| IpRangeError::IoError(io::Error::new(io::ErrorKind::Other, e)))
+            .map_err(|e| IpRangeError::IoError(io::Error::new(
+                io::ErrorKind::Other,
+                e,
+            )))
     }
 }

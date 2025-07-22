@@ -21,7 +21,6 @@ High-performance geolocation service built with Rust and Axum, using the MaxMind
 - Rust (latest stable version)
 - MaxMind GeoLite2 City database (MMDB format)
 - VPN/Datacenter IP database (text file with CIDR ranges)
-- Proxy IP lists (text files with IP:PORT format)
 
 ## Installation
 
@@ -31,15 +30,15 @@ High-performance geolocation service built with Rust and Axum, using the MaxMind
    cd geolocation/rust-service
    ```
 
-2. Download the required database files and place them in the `data` directory:
+2. Create the required directories and download the database files:
    ```bash
-   mkdir -p data/proxies
-   # Download GeoLite2-City.mmdb from MaxMind and place it in the data/ directory
-   # Place your VPN/Datacenter IP list in data/vpns/ipv4.txt
-   # Place your proxy lists in:
-   # - data/proxies/http.txt (HTTP/HTTPS proxies)
-   # - data/proxies/socks4.txt (SOCKS4 proxies)
-   # - data/proxies/socks5.txt (SOCKS5 proxies)
+   mkdir -p data/maxmind
+   
+   # Download GeoLite2 databases from MaxMind and place them in the data/maxmind/ directory:
+   # - GeoLite2-City.mmdb
+   # - GeoLite2-ASN.mmdb
+   
+   # IP ranges and proxy lists will be automatically downloaded to data/ip_ranges/
    ```
 
 3. Build the application:
@@ -56,12 +55,12 @@ Configuration is done via environment variables. Copy `.env.example` to `.env` a
 GEO_SERVER__HOST=0.0.0.0
 GEO_SERVER__PORT=3000
 
-# Database Paths
-GEO_MAXMIND__DB_PATH=data/GeoLite2-City.mmdb
+# MaxMind Database Paths
+GEO_MAXMIND__DB_PATH=data/maxmind/GeoLite2-City.mmdb
+GEO_MAXMIND__ASN_DB_PATH=data/maxmind/GeoLite2-ASN.mmdb
+
+# VPN and Proxy Detection Paths
 GEO_VPN_DETECTOR__DB_PATH=data/vpns/ipv4.txt
-GEO_PROXY_DETECTOR__HTTP_DB_PATH=data/proxies/http.txt
-GEO_PROXY_DETECTOR__SOCKS4_DB_PATH=data/proxies/socks4.txt
-GEO_PROXY_DETECTOR__SOCKS5_DB_PATH=data/proxies/socks5.txt
 
 # Logging
 RUST_LOG=geolocation=info,tower_http=info
@@ -76,6 +75,7 @@ cargo run --release
 # Or with custom configuration
 GEO_SERVER__PORT=8080 \
 GEO_MAXMIND__DB_PATH=/path/to/GeoLite2-City.mmdb \
+GEO_MAXMIND__ASN_DB_PATH=/path/to/GeoLite2-ASN.mmdb \
 cargo run --release
 ```
 

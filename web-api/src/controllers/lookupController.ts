@@ -3,29 +3,8 @@ import { IpLookupResult, LookupResponse } from '../types/ipLookup';
 import { BadRequest } from '../errors/BadRequest';
 import { rustService } from '../services/rustService';
 
-/**
- * Gets the client IP address from the request
- */
-function getClientIp(req: Request): string | undefined {
-    // Try to get the IP from the X-Forwarded-For header (common when behind a proxy)
-    const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded) {
-        if (Array.isArray(forwarded)) {
-            return forwarded[0].split(',')[0].trim();
-        }
-        return forwarded.split(',')[0].trim();
-    }
-    
-    // Try X-Real-IP header
-    if (req.headers['x-real-ip']) {
-        return Array.isArray(req.headers['x-real-ip']) 
-            ? req.headers['x-real-ip'][0] 
-            : req.headers['x-real-ip'];
-    }
-    
-    // Fall back to the connection's remote address
-    return req.socket.remoteAddress;
-}
+// Default demo IP to use in development
+const DEMO_IP = '8.8.8.8';
 
 /**
  * Transforms the rust-service's response to match the frontend's expected format
@@ -59,27 +38,18 @@ function transformLookupResponse(response: LookupResponse): IpLookupResult {
 
 export const lookupIpAddress = async (req: Request, res: Response) => {
     try {
-        // Get the client IP address from the request
-        const clientIp = getClientIp(req) || req.params.ip;
+        // Get the client IP from the request (set by our middleware)
+        const clientIp = req.clientIp || DEMO_IP;
         
-        if (!clientIp) {
-            throw new BadRequest('Could not determine IP address');
-        }
-
         // For demo purposes, use a default API key if not provided
         const apiKey = req.header('x-api-key') || 'demo-api-key';
         
-        // Get all relevant headers to forward to rust-service
-        const xForwardedFor = req.header('x-forwarded-for');
-        const xRealIp = req.header('x-real-ip');
-        
         try {
             // Call the rust-service to get the IP lookup information
-            // Forward the original headers or use the extracted IP if not available
             const result = await rustService.lookupSelf(
                 apiKey, 
-                xForwardedFor || clientIp,
-                xRealIp
+                clientIp, // Use the IP from the request
+                clientIp  // Same for both headers for compatibility
             );
             
             // Transform the response to match the frontend's expected format
@@ -89,39 +59,50 @@ export const lookupIpAddress = async (req: Request, res: Response) => {
             res.json(transformedResult);
         } catch (error) {
             console.error('Error calling rust-service:', error);
+            
+            // In production, rethrow the error to be handled by the global error handler
+            if (process.env.NODE_ENV === 'production') {
+                throw error;
+            }
+            
             // For demo purposes, return a mock response if the rust-service fails
             const mockResponse: IpLookupResult = {
-                ip: clientIp || '8.8.8.8',
+                ip: clientIp,
                 country: 'United States',
                 city: 'Mountain View',
                 asnInfo: {
                     autonomous_system_number: 15169,
                     autonomous_system_organization: 'Google LLC'
                 },
-                isVpn: false,
+                isVpn: true,
                 isProxy: false,
                 isTor: false,
-                threatScore: 0,
-                threatDetails: [],
-                recommendedAction: 'allow',
+                threatScore: 100,
+                threatDetails: ['IP is associated with a VPN or data center'],
+                recommendedAction: 'redirect',
                 latitude: 37.422,
                 longitude: -122.084,
-                proxyType: null,
+                proxyType: null
             };
-            
-            // If we're in development mode, include the error details
-            if (process.env.NODE_ENV === 'development') {
-                (mockResponse as any).error = error instanceof Error ? error.message : 'Unknown error';
-                (mockResponse as any).stack = error instanceof Error ? error.stack : undefined;
-            }
             
             res.json(mockResponse);
         }
     } catch (error) {
         console.error('Error in lookupIpAddress:', error);
+        
+        // If we have a custom error with status code, use it
+        if ('statusCode' in (error as any)) {
+            const statusCode = (error as any).statusCode || 500;
+            return res.status(statusCode).json({
+                error: (error as Error).message || 'An error occurred',
+                details: process.env.NODE_ENV !== 'production' ? (error as Error).stack : undefined
+            });
+        }
+        
+        // Default error response
         res.status(500).json({
-            error: 'An error occurred while processing your request',
-            details: error instanceof Error ? error.message : 'Unknown error'
+            error: 'Internal server error',
+            details: process.env.NODE_ENV !== 'production' ? (error as Error).stack : undefined
         });
     }
 };

@@ -6,29 +6,37 @@ import { IpLookupResult } from '@interfaces/ApiInterfaces';
  * @returns Promise with IP lookup results
  */
 export const lookupSelfIpAddress = async (): Promise<IpLookupResult> => {
-    
-    // For demo purposes, use 8.8.8.8 as the IP and get API key from env
-    const demoIp = '8.8.8.8'; // Google's public DNS as a demo IP
+    // Get API key from environment variables
     const apiKey = process.env.NEXT_PUBLIC_API_KEY || '';
     
-    // Set headers with API key and demo IP
+    // Set headers with just the API key
     const headers: Record<string, string> = {
         'x-api-key': apiKey,
-        'x-real-ip': demoIp,
-        'x-forwarded-for': demoIp // Include both headers for compatibility
+        // Let the backend handle IP extraction
     };
     
     try {
+        console.log('[IP Lookup] Fetching IP information from API...');
         const response = await api<IpLookupResult>('/lookup/self', {
             method: 'GET',
             headers,
         });
+        console.log('[IP Lookup] Successfully retrieved IP information:', response);
         return response;
     } catch (error) {
-        console.warn('API request failed, using mock data. Error:', error);
-        // Return mock data for demo purposes that matches IpLookupResult interface
+        console.error('[IP Lookup] API request failed:', error);
+        
+        // In production, rethrow the error to be handled by the error boundary
+        if (process.env.NODE_ENV === 'production') {
+            console.error('[IP Lookup] Running in production, propagating error to error boundary');
+            throw error;
+        }
+        
+        // For development, return mock data
+        const mockIp = '8.8.8.8';
+        console.warn(`[IP Lookup] Development mode: Using mock data with IP ${mockIp}`);
         return {
-            ip: demoIp,
+            ip: mockIp, // Default demo IP
             country: 'United States',
             city: 'Mountain View',
             asnInfo: {
