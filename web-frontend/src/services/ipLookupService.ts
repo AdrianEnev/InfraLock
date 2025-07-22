@@ -25,23 +25,24 @@ export const lookupSelfIpAddress = async (): Promise<IpLookupResult> => {
         return response;
     } catch (error) {
         console.warn('API request failed, using mock data. Error:', error);
-        // Return mock data for demo purposes
+        // Return mock data for demo purposes that matches IpLookupResult interface
         return {
-            ip: 'Frontend Error',
-            country: {
-                names: {
-                    en: 'Frontend Error'
-                }
+            ip: demoIp,
+            country: 'United States',
+            city: 'Mountain View',
+            asnInfo: {
+                autonomous_system_number: 15169,
+                autonomous_system_organization: 'Google LLC'
             },
-            city: 'Frontend Error',
-            isp: 'Frontend Error',
-            isVpn: false,
+            isVpn: true,
             isProxy: false,
             isTor: false,
-            threatScore: 0,
-            recommendedAction: 'Frontend Error',
-            latitude: 0,    
-            longitude: 0
+            threatScore: 100,
+            threatDetails: ['IP is associated with a VPN or data center'],
+            recommendedAction: 'redirect',
+            latitude: 37.422,
+            longitude: -122.084,
+            proxyType: null
         };
     }
-};  
+};

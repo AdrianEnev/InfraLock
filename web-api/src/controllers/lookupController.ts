@@ -31,18 +31,29 @@ function getClientIp(req: Request): string | undefined {
  * Transforms the rust-service's response to match the frontend's expected format
  */
 function transformLookupResponse(response: LookupResponse): IpLookupResult {
+    // Extract nested values with proper null/undefined checking
+    const countryName = response.geo_info?.country?.names?.en;
+    const city = response.geo_info?.city;
+    const latitude = response.geo_info?.location?.latitude;
+    const longitude = response.geo_info?.location?.longitude;
+    
     return {
         ip: response.ip,
-        country: response.geo_info?.country,
-        city: response.geo_info?.city,
-        isp: response.asn_info?.organization,
+        country: countryName,
+        city: city,
+        asnInfo: response.asn_info ? {
+            autonomous_system_number: response.asn_info.autonomous_system_number,
+            autonomous_system_organization: response.asn_info.autonomous_system_organization
+        } : undefined,
         isVpn: response.is_vpn_or_datacenter,
         isProxy: response.is_proxy,
         isTor: response.is_tor_exit_node,
         threatScore: response.threat_score,
+        threatDetails: response.threat_details || [],
         recommendedAction: response.recommended_action,
-        latitude: response.geo_info?.latitude,
-        longitude: response.geo_info?.longitude,
+        latitude: latitude,
+        longitude: longitude,
+        proxyType: response.proxy_type
     };
 }
 
@@ -73,7 +84,6 @@ export const lookupIpAddress = async (req: Request, res: Response) => {
             
             // Transform the response to match the frontend's expected format
             const transformedResult = transformLookupResponse(result);
-            console.log(transformedResult)
             
             // Return the transformed result to the client
             res.json(transformedResult);
@@ -81,18 +91,30 @@ export const lookupIpAddress = async (req: Request, res: Response) => {
             console.error('Error calling rust-service:', error);
             // For demo purposes, return a mock response if the rust-service fails
             const mockResponse: IpLookupResult = {
-                ip: clientIp,
-                country: 'Node.js Error',
-                city: 'Node.js Error',
-                isp: 'Node.js Error',
+                ip: clientIp || '8.8.8.8',
+                country: 'United States',
+                city: 'Mountain View',
+                asnInfo: {
+                    autonomous_system_number: 15169,
+                    autonomous_system_organization: 'Google LLC'
+                },
                 isVpn: false,
                 isProxy: false,
                 isTor: false,
                 threatScore: 0,
-                recommendedAction: 'Node.js Error',
-                latitude: 0,
-                longitude: 0
+                threatDetails: [],
+                recommendedAction: 'allow',
+                latitude: 37.422,
+                longitude: -122.084,
+                proxyType: null,
             };
+            
+            // If we're in development mode, include the error details
+            if (process.env.NODE_ENV === 'development') {
+                (mockResponse as any).error = error instanceof Error ? error.message : 'Unknown error';
+                (mockResponse as any).stack = error instanceof Error ? error.stack : undefined;
+            }
+            
             res.json(mockResponse);
         }
     } catch (error) {

@@ -18,7 +18,7 @@ function Header() {
         <div className='w-full h-full px-[3%] sm:px-[5%] md:px-[10%] pb-3 pt-2 flex items-center select-none'>
             <div className="w-full h-full flex flex-row justify-around">
                 <div>
-                    <p className="text-lg lg:text-xl my-3 hover:opacity-60" onClick={() => router.push('/')}><span className="text-2xl">🔒</span> User Behaviour API</p>
+                    <p className="text-lg lg:text-xl my-3 hover:opacity-60" onClick={() => router.push('/')}><span className="text-2xl">🔒</span> InfraLock API</p>
                 </div>
 
                 <div className="flex flex-row gap-x-3">
