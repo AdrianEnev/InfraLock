@@ -6,6 +6,7 @@ import { IpLookupResult } from '@interfaces/ApiInterfaces';
  * @returns Promise with IP lookup results
  */
 export const lookupSelfIpAddress = async (): Promise<IpLookupResult> => {
+    
     // For demo purposes, use 8.8.8.8 as the IP and get API key from env
     const demoIp = '8.8.8.8'; // Google's public DNS as a demo IP
     const apiKey = process.env.NEXT_PUBLIC_API_KEY || '';
