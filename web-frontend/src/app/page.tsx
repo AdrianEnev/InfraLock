@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useIpLookup } from "@hooks/useIpLookup";
+import JsonLookupComponent from "@src/components/LookupComponents/JsonLookupComponent";
+import RiskFactor from "@src/components/LookupComponents/RiskFactor";
 
 export default function Home() {
 
@@ -33,52 +35,9 @@ export default function Home() {
                     )}
 
                     {result && (
-                        <div className="space-y-4">
-                            <div className="bg-gray-800 rounded-md p-4 font-mono text-sm text-gray-200 overflow-x-auto">
-                                <pre className="whitespace-pre">
-{
-`{
-  ip: "${result.ip}",
-  country: "${result.country || 'Unknown'}",
-  city: "${result.city || 'Unknown'}",
-  location: {
-    latitude: ${result.latitude || 'null'},
-    longitude: ${result.longitude || 'null'}
-  },
-  asnInfo: {
-    autonomous_system_number: ${result.asnInfo?.autonomous_system_number || 'null'},
-    autonomous_system_organization: "${result.asnInfo?.autonomous_system_organization || 'Unknown'}"
-  },
-  isVpn: ${result.isVpn || false},
-  isProxy: ${result.isProxy || false},
-  isTor: ${result.isTor || false},
-  threatScore: ${result.threatScore || 0},
-  threatDetails: ${result.threatDetails?.length ? JSON.stringify(result.threatDetails, null, 2) : '[]'},
-  recommendedAction: "${result.recommendedAction || 'none'}",
-  proxyType: "${result.proxyType || 'null'}"
-}`
-}                               </pre>
-                            </div>
-
-                            <div className="mt-4 p-4 rounded-md" 
-                                 style={{
-                                    backgroundColor: (result.threatScore || 0) >= 70 ? '#FEF2F2' : 
-                                                  (result.threatScore || 0) >= 30 ? '#FFFBEB' : '#F0FDF4',
-                                    borderLeft: `4px solid ${
-                                        (result.threatScore || 0) >= 70 ? '#DC2626' : 
-                                        (result.threatScore || 0) >= 30 ? '#D97706' : '#16A34A'
-                                    }`
-                                 }}>
-                                <p className="font-medium">
-                                    {(result.threatScore || 0) >= 70 ? '⚠️ High Risk' : 
-                                     (result.threatScore || 0) >= 30 ? '⚠️ Medium Risk' : '✅ Low Risk'}
-                                </p>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    {(result.recommendedAction || 'none') === 'allow' ? 'This IP appears to be safe.' : 
-                                     (result.recommendedAction || 'none') === 'warn' ? 'Exercise caution with this IP.' :
-                                     'This IP has been flagged as potentially risky.'}
-                                </p>
-                            </div>
+                        <div>
+                            <JsonLookupComponent result={result} />
+                            <RiskFactor result={result} />
                         </div>
                     )}
                 </div>

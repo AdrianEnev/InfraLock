@@ -25,7 +25,7 @@ function Header() {
                     <p className="text-base lg:text-lg text-gray-500 my-3 hover:opacity-60" onClick={() => router.push('/pricing')}>Pricing</p>
                     <p className="text-base lg:text-lg text-gray-500 my-3 hover:opacity-60" onClick={() => router.push('/docs')}>Docs</p>
                     <p className="text-base lg:text-lg text-gray-500 my-3 hover:opacity-60">Use Cases</p>
-                    <p className="text-base lg:text-lg text-gray-500 my-3 hover:opacity-60">Developers</p>
+                    <p className="text-base lg:text-lg text-gray-500 my-3 hover:opacity-60" onClick={() => router.push('/ip-lookup')}>IP-Lookup</p>
                 </div>
                  
                 <div className="flex flex-row gap-x-5">

@@ -1,16 +1,12 @@
-/**
- * Represents a country with optional localized names.
- * - `names`: An optional object containing the country name
- *   in different languages, where the key is the language code
- *   and the value is the country name in that language.
- *   - `en`: Represents the country name in English.
- *   - Other language codes can be added as needed.
- */
 export interface Country {
     names?: {
         en?: string;
-        // Add other language codes as needed
-        [key: string]: string | undefined;
+    };
+}
+
+export interface City {
+    names?: {
+        en?: string;
     };
 }
 
@@ -20,7 +16,7 @@ export interface Location {
 }
 
 export interface GeoInfo {
-    city?: string;
+    city?: City;
     country?: Country;
     location?: Location;
 }
@@ -28,6 +24,31 @@ export interface GeoInfo {
 export interface AsnInfo {
     autonomous_system_number?: number;
     autonomous_system_organization?: string;
+}
+
+export interface ClientBrowserInfo {
+    name: string;
+    version: string;
+}
+
+export interface ClientOsInfo {
+    name: string;
+    version: string;
+}
+
+export interface ClientDeviceInfo {
+    model: string;
+    type: string;
+}
+
+export interface ClientInfo {
+    userAgent: string;
+    browser: ClientBrowserInfo;
+    os: ClientOsInfo;
+    device: ClientDeviceInfo;
+    engine: string;
+    cpu: string;
+    timestamp: string;
 }
 
 export interface LookupResponse {
@@ -60,4 +81,5 @@ export interface IpLookupResult extends Omit<LookupResponse, 'is_vpn_or_datacent
     latitude?: number;
     longitude?: number;
     proxyType?: string | null;
+    clientInfo?: ClientInfo;
 }

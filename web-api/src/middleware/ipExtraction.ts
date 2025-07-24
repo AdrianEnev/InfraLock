@@ -1,12 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
 import { isIP } from 'net';
 import { BadRequest } from '../errors/BadRequest';
+import { UAParser } from 'ua-parser-js';
 
 // Extend the Express Request type to include clientIp
 declare global {
     namespace Express {
         interface Request {
             clientIp?: string;
+            clientInfo?: {
+                userAgent: string;
+                browser: string;
+                browserVersion: string;
+                os: string;
+                osVersion: string;
+                device: string;
+                deviceType: string;
+                cpu: string;
+                engine: string;
+            };
         }
     }
 }
@@ -23,7 +35,8 @@ const DEMO_IP = '8.8.8.8';
 
 /**
  * Extracts and validates the client IP address from the request.
- * Sets req.clientIp with the extracted IP or DEMO_IP in development.
+ * Also parses user agent information.
+ * Sets req.clientIp and req.clientInfo with the extracted data.
  */
 export const extractClientIp = (req: Request, res: Response, next: NextFunction) => {
     console.log(`[IP Extraction] Starting IP extraction (NODE_ENV=${process.env.NODE_ENV})`);
@@ -57,35 +70,39 @@ export const extractClientIp = (req: Request, res: Response, next: NextFunction)
         console.log(`[IP Extraction] Using socket.remoteAddress: ${ip}`);
     }
     
-    // In development, use demo IP for localhost/loopback
-    if (process.env.NODE_ENV !== 'production' && ip && (LOCAL_IPS.has(ip) || isPrivateIp(ip))) {
-        console.log(`[IP Extraction] Development mode: Using demo IP (${DEMO_IP}) instead of ${ip}`);
+    // In development, for the /lookup/self route, use demo IP for localhost/loopback
+    if (req.path.endsWith('/self') && process.env.NODE_ENV !== 'production' && ip && (LOCAL_IPS.has(ip) || isPrivateIp(ip))) {
+        console.log(`[IP Extraction] Development mode: Using demo IP (${DEMO_IP}) instead of ${ip} for /lookup/self`);
         ip = DEMO_IP;
     }
     
-    // Validate IP format
-    if (ip && isIP(ip)) {
-        req.clientIp = ip;
-        const source = req.headers['x-forwarded-for'] ? 'x-forwarded-for' : 
-                     req.headers['x-real-ip'] ? 'x-real-ip' : 'socket.remoteAddress';
-        console.log(`[IP Extraction] Using IP: ${ip} (source: ${source})`);
-        return next();
+    // Validate the IP address
+    if (ip && !isIP(ip)) {
+        console.error(`[IP Extraction] Invalid IP address: ${ip}`);
+        return next(new BadRequest('Invalid IP address'));
     }
+
+    // Set the client IP on the request object
+    req.clientIp = ip || DEMO_IP;
+
+    // Parse user agent information
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const { browser, os, device, cpu } = UAParser(userAgent);
+
+    req.clientInfo = {
+        userAgent,
+        browser: browser.name || 'unknown',
+        browserVersion: browser.version || 'unknown',
+        os: os.name || 'unknown',
+        osVersion: os.version || 'unknown',
+        device: device.model || 'unknown',
+        deviceType: device.type || 'desktop',
+        cpu: cpu.architecture || 'unknown',
+        engine: 'unknown'
+    };
+
+    console.log('[IP Extraction] Client info:', JSON.stringify(req.clientInfo, null, 2));
     
-    // In production, reject invalid IPs
-    if (process.env.NODE_ENV === 'production') {
-        const errorMsg = `Invalid IP address: ${ip}. Headers: ${JSON.stringify({
-            'x-forwarded-for': req.headers['x-forwarded-for'],
-            'x-real-ip': req.headers['x-real-ip'],
-            'socket.remoteAddress': req.socket.remoteAddress
-        })}`;
-        console.error(`[IP Extraction] ${errorMsg}`);
-        return next(new BadRequest('Could not determine a valid client IP address'));
-    }
-    
-    // In development, use demo IP as fallback
-    console.log(`[IP Extraction] No valid IP found, using demo IP (${DEMO_IP}) in development`);
-    req.clientIp = DEMO_IP;
     next();
 };
 
