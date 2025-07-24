@@ -89,6 +89,30 @@ export class RustServiceClient {
 
     return response.data;
   }
+
+  /**
+   * Look up a specific IP address from the rust-service
+   * @param apiKey The API key for authentication
+   * @param ip The IP address to look up
+   * @returns Promise with IP lookup results
+   */
+  async lookupIp(
+    apiKey: string, 
+    ip: string
+  ): Promise<LookupResponse> {
+    const config: AxiosRequestConfig = {
+      headers: {
+        'X-API-Key': apiKey,
+      },
+    };
+
+    const response: AxiosResponse<LookupResponse> = await this.client.get(
+      `/api/lookup/${ip}`,
+      config
+    );
+
+    return response.data;
+  }
 }
 
 // Export a singleton instance

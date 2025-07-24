@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 const publicPaths = ['/login', '/register'];
 
 // List of protected paths that require authentication
-const protectedPaths = ['/account', '/api-keys'];
+const protectedPaths = ['/account', '/api-keys', '/ip-lookup'];
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
@@ -46,5 +46,6 @@ export const config = {
         '/register',
         '/account',
         '/api-keys',
+        '/ip-lookup',
     ],
 };

@@ -11,7 +11,7 @@ pub mod service;
 
 // Re-export the main types for easier access
 pub use tree::SharedRadixTree;
-pub use types::IpCategory;
+pub use types::{IpCategory, IpVersion};
 pub use service::{IpLookupService, IpLookupServiceConfig, IpRangeSource};
 
 use std::net::IpAddr;
@@ -86,45 +86,59 @@ pub fn default_config() -> anyhow::Result<IpLookupServiceConfig> {
         update_interval_secs: 3600, // 1 hour
         max_cache_age_secs: 86400,  // 24 hours
         sources: vec![
-            // VPN list (working)
+            // VPN list (ipv4)
             IpRangeSource {
                 url: "https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv4.txt".to_string(),
                 category: IpCategory::Vpn,
-                name: "x4net-vpn".to_string(),
+                name: "vpn-ipv4".to_string(),
                 enabled: true,
                 format: SourceFormat::Default,
+                ip_version: IpVersion::V4,
             },
-            // HTTP proxies (update format)
+            // VPN list (ipv6)
+            IpRangeSource {
+                url: "https://raw.githubusercontent.com/MISP/misp-warninglists/refs/heads/main/lists/vpn-ipv6/list.json".to_string(),
+                category: IpCategory::Vpn,
+                name: "misp-vpn-ipv6".to_string(),
+                enabled: true,
+                format: SourceFormat::JsonList,
+                ip_version: IpVersion::V6,
+            },
+            // HTTP proxies (ipv4)
             IpRangeSource {
                 url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt".to_string(),
                 category: IpCategory::ProxyHttp,
                 name: "thespeedx-http".to_string(),
                 enabled: true,
                 format: SourceFormat::IpPort,
+                ip_version: IpVersion::V4,
             },
-            // SOCKS4 proxies (update format)
-            IpRangeSource {
-                url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt".to_string(),
-                category: IpCategory::ProxySocks4,
-                name: "thespeedx-socks4".to_string(),
-                enabled: true,
-                format: SourceFormat::IpPort,
-            },
-            // SOCKS5 proxies (update format)
+            // SOCKS5 proxies (ipv4)
             IpRangeSource {
                 url: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt".to_string(),
                 category: IpCategory::ProxySocks5,
                 name: "thespeedx-socks5".to_string(),
                 enabled: true,
                 format: SourceFormat::IpPort,
+                ip_version: IpVersion::V4,
             },
-            // Tor exit nodes (special format)
+            // Tor exit nodes (ipv4)
             IpRangeSource {
                 url: "https://check.torproject.org/exit-addresses".to_string(),
                 category: IpCategory::TorExitNode,
-                name: "tor-exit-nodes".to_string(),
+                name: "tor-exit-nodes-ipv4".to_string(),
                 enabled: true,
                 format: SourceFormat::TorExitList,
+                ip_version: IpVersion::V4,
+            },
+            // Tor exit nodes (ipv6) - same URL as IPv4, but will be filtered by ip_version
+            IpRangeSource {
+                url: "https://check.torproject.org/exit-addresses".to_string(),
+                category: IpCategory::TorExitNode,
+                name: "tor-exit-nodes-ipv6".to_string(),
+                enabled: true,
+                format: SourceFormat::TorExitList,
+                ip_version: IpVersion::V6,
             },
         ],
     })

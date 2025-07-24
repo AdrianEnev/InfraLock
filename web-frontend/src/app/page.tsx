@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useIpLookup } from "@hooks/useIpLookup";
+import JsonLookupComponent from "@src/components/LookupComponents/JsonLookupComponent";
+import RiskFactor from "@src/components/LookupComponents/RiskFactor";
 
 export default function Home() {
 
-    const { result, isLoading, error } = useIpLookup();
+    const { data: result, isLoading, error } = useIpLookup();
 
     return (
         <div className="w-screen min-h-screen overflow-x-hidden">
@@ -13,16 +15,16 @@ export default function Home() {
                 <div className="text-center mb-12">
                     <h1 className="text-5xl text-gray-700 font-bold mb-4">Infra<span className="text-blue-500">Lock</span> 🌍</h1>
                     <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                        Powerful geolocation services with secure API key authentication.
+                        Powerful user information services with secure API key authentication.
                     </p>
                 </div>
 
                 <div className="bg-white rounded-lg shadow-md p-6 mb-12">
-                    <h2 className="text-2xl font-semibold mb-4">Your IP Information</h2>
+                    <h2 className="text-2xl font-semibold mb-4">User Information</h2>
                     
                     {isLoading && (
                         <div className="text-center py-4">
-                            <p className="text-gray-600">Loading your IP information...</p>
+                            <p className="text-gray-600">Loading information...</p>
                         </div>
                     )}
 
@@ -33,40 +35,9 @@ export default function Home() {
                     )}
 
                     {result && (
-                        <div className="space-y-4">
-                            <div className="bg-gray-800 rounded-md p-4 font-mono text-sm text-gray-200 overflow-x-auto">
-                                <pre className="whitespace-pre">{
-`{
-  ip: "${result.ip}",
-  country: ${result.country ? JSON.stringify(result.country.names, null, 2) : 'null'},
-  city: ${result.city || 'null'},
-  isVpn: ${result.isVpn},
-  isProxy: ${result.isProxy},
-  isTor: ${result.isTor || 'false'},
-  threatScore: ${result.threatScore},
-  recommendedAction: "${result.recommendedAction}"
-}`}
-                                </pre>
-                            </div>
-                            <div className="mt-4 p-4 rounded-md" 
-                                 style={{
-                                    backgroundColor: result.threatScore! >= 70 ? '#FEF2F2' : 
-                                                  result.threatScore! >= 30 ? '#FFFBEB' : '#F0FDF4',
-                                    borderLeft: `4px solid ${
-                                        result.threatScore! >= 70 ? '#DC2626' : 
-                                        result.threatScore! >= 30 ? '#F59E0B' : '#10B981'
-                                    }`
-                                 }}>
-                                <p className="font-medium">
-                                    {result.threatScore! >= 70 ? '⚠️ High Risk' : 
-                                     result.threatScore! >= 30 ? '⚠️ Medium Risk' : '✅ Low Risk'}
-                                </p>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    {result.recommendedAction === 'allow' ? 'This IP appears to be safe.' : 
-                                     result.recommendedAction === 'warn' ? 'Exercise caution with this IP.' :
-                                     'This IP has been flagged as potentially risky.'}
-                                </p>
-                            </div>
+                        <div>
+                            <JsonLookupComponent result={result} />
+                            <RiskFactor result={result} />
                         </div>
                     )}
                 </div>

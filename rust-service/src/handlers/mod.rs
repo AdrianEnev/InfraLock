@@ -114,6 +114,8 @@ pub async fn lookup_self(
     );
 
     let response = lookup_service.lookup_ip(ip_addr).await?;
+    tracing::debug!("Response: {:#?}", response);
+
     Ok(Json(response))
 }
 

@@ -30,14 +30,11 @@
 /config/GeoIP.conf
 
 # Databases
-/data/GeoLite2-City.mmdb
-/data/providers/GeoLite2-ASN.mmdb
-/data/vpns/ipv4.txt
-/data/proxies/http.txt
-/data/proxies/socks4.txt
-/data/proxies/socks5.txt
-/data/tor/exit-addresses.txt
+/data/maxmind/*
 /data/tmp_update/
 
 # Ignore ip_ranges
 /data/ip_ranges/
+
+# Ignore count_ip_ranges.py
+/count_ip_ranges.py

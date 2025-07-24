@@ -1,14 +1,14 @@
 use std::path::PathBuf;
 use std::time::Duration;
 use serde::{Serialize, Deserialize};
-use tracing::{info, error};
+use tracing::{debug, error, info, warn};
 use ip_network::IpNetwork;
 use url::Url;
 
 use crate::ip_lookup::{
     loader::{IpRangeLoader, IpRangeLoaderConfig},
     tree::RadixTree,
-    types::{IpCategory, IpRange, SourceFormat},
+    types::{IpCategory, IpRange, SourceFormat, IpVersion},
     SharedRadixTree,
 };
 
@@ -36,6 +36,7 @@ pub struct IpRangeSource {
     pub enabled: bool,
     #[serde(default)]
     pub format: SourceFormat,
+    pub ip_version: IpVersion,
 }
 
 /// The IP lookup service
@@ -151,7 +152,7 @@ impl IpLookupService {
         
         // Generate a filename for this source
         let url = Url::parse(&source.url)?;
-        let filename = self.loader.filename_from_url(&url, source.category);
+        let filename = self.loader.filename_from_url(&url, source.category, source.ip_version);
         let filepath = self.config.data_dir.join(&filename);
         
         // Check if the file exists and needs an update
@@ -188,32 +189,141 @@ impl IpLookupService {
 
     /// Update the radix tree with new ranges
     async fn update_tree(&self, ranges: Vec<IpRange>) -> anyhow::Result<()> {
-        info!("Updating radix tree with {} ranges", ranges.len());
+        //info!("Updating radix tree with {} ranges", ranges.len());
+        let mut v4_count = 0;
+        let mut v6_count = 0;
+        let mut parse_errors = 0;
+        let mut v4_inserted = 0;
+        let mut v6_inserted = 0;
+        let mut v4_skipped = 0;
+        let mut v6_skipped = 0;
         
-        // Create a new tree to avoid blocking lookups during update
+        // Log the first 10 ranges for debugging
+        //info!("First 10 ranges to process:");
+        for (i, range) in ranges.iter().take(10).enumerate() {
+            //info!("[{}] network={}, category={:?}, source={}", 
+                 //i, range.network, range.category, range.source);
+        }
+        
+        // Create a new tree to build up
         let mut new_tree = RadixTree::new();
         
-        // Load all ranges into the new tree
-        for range in ranges {
-            if let Ok(network) = range.network.parse::<IpNetwork>() {
-                new_tree.insert(network, range.category);
-                // Note: We're ignoring the Option return value since we don't care about
-                // the previous value when doing a bulk update
-            } else {
-                error!("Invalid network format: {}", range.network);
+        // Process each range
+        for range in &ranges {
+            match range.network.parse::<IpNetwork>() {
+                Ok(network) => {
+                    match network {
+                        IpNetwork::V4(_) => v4_count += 1,
+                        IpNetwork::V6(net) => {
+                            v6_count += 1;
+                            //debug!(
+                            //    "Processing IPv6 range: {}/{} - Category: {:?} - Source: {}",
+                            //    net.network_address(),
+                            //    net.netmask(),
+                            //    range.category,
+                            //    range.source
+                            //);
+                        }
+                    }
+                    
+                    // Insert into the new tree
+                    let prev_category = new_tree.insert(network, range.category);
+                    
+                    // Track insertions vs skips
+                    match network {
+                        IpNetwork::V4(_) => {
+                            if prev_category.is_some() {
+                                v4_skipped += 1;
+                            } else {
+                                v4_inserted += 1;
+                            }
+                        },
+                        IpNetwork::V6(net) => {
+                            if prev_category.is_some() {
+                                v6_skipped += 1;
+                                //debug!("Skipped duplicate IPv6 network: {}/{}", net.network_address(), net.netmask());
+                            } else {
+                                v6_inserted += 1;
+                                //debug!("Inserted new IPv6 network: {}/{}", net.network_address(), net.netmask());
+                                
+                                // Verify the insertion
+                                let check = new_tree.lookup(net.network_address().into());
+                                if check.is_some() {
+                                    //debug!("Verified IPv6 network is in the tree");
+                                } else {
+                                    //error!("CRITICAL: Failed to verify IPv6 network {}/{} is in the tree!", net.network_address(), net.netmask());
+                                }
+                            }
+                        }
+                    }
+                },
+                Err(e) => {
+                    parse_errors += 1;
+                    if range.network.contains(':') {
+                        error!("Failed to parse IPv6 network '{}' from source '{}': {}", 
+                            range.network, range.source, e);
+                    } else {
+                        error!("Failed to parse network '{}' from source '{}': {}", 
+                            range.network, range.source, e);
+                    }
+                }
             }
         }
         
+        // Log summary before replacing the tree
+        //info!(
+        //    "Processed {} ranges ({} IPv4, {} IPv6, {} errors)",
+        //    ranges.len(), v4_count, v6_count, parse_errors
+        //);
+        //info!(
+        //    "IPv4: {} inserted, {} skipped",
+        //    v4_inserted, v4_skipped
+        //);
+        //info!(
+        //    "IPv6: {} inserted, {} skipped",
+        //    v6_inserted, v6_skipped
+        //);
+        
+        // Log tree sizes before replacement
+        let (v4_size, v6_size) = new_tree.len();
+        //info!(
+        //    "New tree size before replacement - IPv4: {}, IPv6: {}, Total: {}",
+        //    v4_size, v6_size, v4_size + v6_size
+        //);
+
         // Atomically replace the tree
+        info!("Replacing the radix tree with new data...");
         self.tree.replace(new_tree);
         
-        let (v4_count, v6_count) = self.tree.len();
-        info!(
-            "Radix tree updated. IPv4 entries: {}, IPv6 entries: {}, Total: {}",
-            v4_count,
-            v6_count,
-            v4_count + v6_count
-        );
+        // Log final tree size (using the tree we just updated)
+        let (final_v4, final_v6) = self.tree.len();
+        //info!(
+        //    "Final tree size after replacement - IPv4: {}, IPv6: {}, Total: {}",
+        //    final_v4, final_v6, final_v4 + final_v6
+        //);
+        
+        if final_v6 == 0 && v6_count > 0 {
+            error!(
+                "CRITICAL: No IPv6 networks were inserted into the tree, but {} were processed. This indicates a critical issue with IPv6 handling.",
+                v6_count
+            );
+            
+            // Log some diagnostic information
+            error!("IPv6 statistics from processing:");
+            error!("- Total IPv6 ranges processed: {}", v6_count);
+            error!("- IPv6 ranges inserted: {}", v6_inserted);
+            error!("- IPv6 ranges skipped (duplicates): {}", v6_skipped);
+            error!("- IPv6 parse errors: {}", parse_errors);
+            
+            // Log some sample IPv6 networks that should have been inserted
+            let sample_networks: Vec<_> = ranges.iter()
+                .filter(|r| r.network.contains(':'))
+                .take(5)
+                .map(|r| r.network.clone())
+                .collect();
+                
+            error!("Sample IPv6 networks that should have been inserted: {:?}", sample_networks);
+        }
         
         Ok(())
     }
@@ -245,6 +355,7 @@ mod tests {
             name: "test".to_string(),
             enabled: true,
             format: SourceFormat::Default,
+            ip_version: IpVersion::V4,
         };
 
         let config = IpLookupServiceConfig {
