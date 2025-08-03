@@ -39,7 +39,10 @@ pub fn create_router(state: AppState, auth_state: Arc<ApiKeyAuthState>) -> Route
 
     // Public routes that don't require authentication
     let public_routes = Router::new()
-        .route("/health", get(|| async { "OK" }));
+        .route("/health", get(|| async { "OK" }))
+        // "unlimited" routes are temporary for development - in production, the "secret_unlimited_key" from the backend should be validated
+        .route("/unlimited/lookup/self", get(handlers::lookup_self))
+        .route("/unlimited/lookup/{ip}", get(handlers::lookup_ip));
 
     // Protected routes that require authentication
     let protected_routes = Router::new()

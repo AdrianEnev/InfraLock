@@ -77,8 +77,11 @@ export const lookupIpAddress = async (req: Request, res: Response) => {
             }
             console.log(`[Lookup] Looking up specific IP: ${ipToLookup}`);
             
-            // Call the rust-service with the specific IP
-            result = await rustService.lookupIp(apiKey, ipToLookup);
+            // Determine if this is an unlimited request
+            const isUnlimited = req.originalUrl.includes('/unlimited/');
+            
+            // Call the rust-service with the specific IP and unlimited flag
+            result = await rustService.lookupIp(apiKey, ipToLookup, isUnlimited);
         } else {
             // For /lookup/self, use the client's IP address
             if (!req.clientIp) {
@@ -88,8 +91,11 @@ export const lookupIpAddress = async (req: Request, res: Response) => {
             const clientIp = req.clientIp;
             console.log(`[Lookup] Looking up client IP: ${clientIp}`);
             
-            // Call the rust-service with the client's IP
-            result = await rustService.lookupSelf(apiKey, clientIp, clientIp);
+            // Determine if this is an unlimited request
+            const isUnlimited = req.originalUrl.includes('/unlimited/');
+            
+            // Call the rust-service with the client's IP and unlimited flag
+            result = await rustService.lookupSelf(apiKey, clientIp, clientIp, isUnlimited);
         }
         
         if (!result) {

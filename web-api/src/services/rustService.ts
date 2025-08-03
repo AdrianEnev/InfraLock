@@ -64,12 +64,14 @@ export class RustServiceClient {
    * @param apiKey The API key for authentication
    * @param xForwardedFor The X-Forwarded-For header value (if behind a proxy)
    * @param xRealIp The X-Real-IP header value (alternative to X-Forwarded-For)
+   * @param isUnlimited Whether to use the unlimited endpoint
    * @returns Promise with IP lookup results
    */
   async lookupSelf(
     apiKey: string, 
     xForwardedFor?: string, 
-    xRealIp?: string
+    xRealIp?: string,
+    isUnlimited: boolean = false
   ): Promise<LookupResponse> {
     const config: AxiosRequestConfig = {
       headers: {
@@ -93,8 +95,9 @@ export class RustServiceClient {
       };
     }
 
+    const endpoint = isUnlimited ? '/unlimited/lookup/self' : '/api/lookup/self';
     const response: AxiosResponse<LookupResponse> = await this.client.get(
-      '/api/lookup/self',
+      endpoint,
       config
     );
 
@@ -105,11 +108,13 @@ export class RustServiceClient {
    * Look up a specific IP address from the rust-service
    * @param apiKey The API key for authentication
    * @param ip The IP address to look up
+   * @param isUnlimited Whether to use the unlimited endpoint
    * @returns Promise with IP lookup results
    */
   async lookupIp(
     apiKey: string, 
-    ip: string
+    ip: string,
+    isUnlimited: boolean = false
   ): Promise<LookupResponse> {
     const config: AxiosRequestConfig = {
       headers: {
@@ -117,8 +122,9 @@ export class RustServiceClient {
       },
     };
 
+    const endpoint = isUnlimited ? `/unlimited/lookup/${ip}` : `/api/lookup/${ip}`;
     const response: AxiosResponse<LookupResponse> = await this.client.get(
-      `/api/lookup/${ip}`,
+      endpoint,
       config
     );
 
