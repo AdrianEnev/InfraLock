@@ -30,9 +30,6 @@ const LOCAL_IPS = new Set([
     '::ffff:127.0.0.1' // IPv4-mapped IPv6 localhost
 ]);
 
-// Default demo IP to use in development
-const DEMO_IP = '85.14.44.10';
-
 /**
  * Extracts and validates the client IP address from the request.
  * Also parses user agent information.
@@ -70,20 +67,19 @@ export const extractClientIp = (req: Request, res: Response, next: NextFunction)
         console.log(`[IP Extraction] Using socket.remoteAddress: ${ip}`);
     }
     
-    // In development, for the /lookup/self route, use demo IP for localhost/loopback
+    // In development, for the /lookup/self route, allow localhost/loopback
     if (req.path.endsWith('/self') && process.env.NODE_ENV !== 'production' && ip && (LOCAL_IPS.has(ip) || isPrivateIp(ip))) {
-        console.log(`[IP Extraction] Development mode: Using demo IP (${DEMO_IP}) instead of ${ip} for /lookup/self`);
-        ip = DEMO_IP;
+        console.log(`[IP Extraction] Development mode: Allowing localhost/private IP (${ip}) for /lookup/self`);
     }
     
     // Validate the IP address
-    if (ip && !isIP(ip)) {
-        console.error(`[IP Extraction] Invalid IP address: ${ip}`);
-        return next(new BadRequest('Invalid IP address'));
+    if (!ip || !isIP(ip)) {
+        console.error(`[IP Extraction] Could not determine valid IP address from request`);
+        return next(new BadRequest('Could not determine client IP address. Please ensure your request includes proper headers (X-Forwarded-For or X-Real-IP) if behind a proxy.'));
     }
 
     // Set the client IP on the request object
-    req.clientIp = ip || DEMO_IP;
+    req.clientIp = ip;
 
     // Parse user agent information
     const userAgent = req.headers['user-agent'] || 'unknown';

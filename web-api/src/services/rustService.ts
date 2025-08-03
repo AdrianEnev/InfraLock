@@ -38,12 +38,23 @@ export class RustServiceClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
+        const errorData = error.response?.data || {};
+        const errorMessage = errorData.message || error.message || 'Unknown error';
+        const errorStatus = error.response?.status || 500;
+        
         console.error('[RustService] Response Error:', {
-          status: error.response?.status,
+          status: errorStatus,
           statusText: error.response?.statusText,
-          data: error.response?.data,
+          message: errorMessage,
+          data: errorData,
         });
-        return Promise.reject(error);
+        
+        // Create a new error with the status code and message
+        const serviceError = new Error(errorMessage);
+        (serviceError as any).status = errorStatus;
+        (serviceError as any).data = errorData;
+        
+        return Promise.reject(serviceError);
       }
     );
   }

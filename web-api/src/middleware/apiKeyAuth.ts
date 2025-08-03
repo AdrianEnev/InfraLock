@@ -28,18 +28,12 @@ export const apiKeyAuth = (req: Request, res: Response, next: NextFunction) => {
     const apiKey = req.get('x-api-key') || req.query.api_key as string;
     
     if (!apiKey) {
-        return res.status(401).json({
-            success: false,
-            error: 'API key is required. Please provide x-api-key header or api_key query parameter.'
-        });
+        throw new Unauthorized('API key is required. Please provide x-api-key header or api_key query parameter.', 'api/missing-api-key');
     }
     
     if (!API_KEYS.has(apiKey)) {
         console.warn(`Unauthorized access attempt with API key: ${apiKey.substring(0, 5)}...`);
-        return res.status(401).json({
-            success: false,
-            error: 'Invalid API key. Please check your credentials.'
-        });
+        throw new Unauthorized('Invalid API key. Please check your credentials.', 'api/invalid-api-key');
     }
     
     next();
