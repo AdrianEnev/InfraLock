@@ -31,7 +31,7 @@ const LOCAL_IPS = new Set([
 ]);
 
 // Default demo IP to use in development
-const DEMO_IP = '8.8.8.8';
+const DEMO_IP = '85.14.44.10';
 
 /**
  * Extracts and validates the client IP address from the request.

@@ -4,7 +4,7 @@ import { BadRequest } from '../errors/BadRequest';
 import { rustService } from '../services/rustService';
 
 // Default demo IP to use in development
-const DEMO_IP = '8.8.8.8';
+const DEMO_IP = '85.14.44.10';
 
 /**
  * Transforms the rust-service's response to match the frontend's expected format
