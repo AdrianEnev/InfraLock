@@ -57,16 +57,14 @@ function transformLookupResponse(response: LookupResponse, clientInfo?: any): Ip
 }
 
 export const lookupIpAddress = async (req: Request, res: Response) => {
-    // Get the API key from the request headers
-    const apiKey = req.header('x-api-key');
-    if (!apiKey) {
-        throw new Unauthorized('API key is required');
-    }
-    
     // Check if this is a specific IP lookup (e.g., /lookup/8.8.8.8)
     const isSpecificIpLookup = req.params.ip && req.params.ip !== 'self';
     
     try {
+        console.log(`[lookupIpAddress] Starting lookup for ${isSpecificIpLookup ? 'specific IP' : 'self'}`);
+        
+        const apiKey = req.header('x-api-key')!; // Safe to assert non-null as middleware ensures it exists
+        
         let result: LookupResponse;
         
         if (isSpecificIpLookup) {
@@ -75,13 +73,10 @@ export const lookupIpAddress = async (req: Request, res: Response) => {
             if (!ipToLookup || !isIP(ipToLookup)) {
                 throw new BadRequest('Invalid IP address format');
             }
-            console.log(`[Lookup] Looking up specific IP: ${ipToLookup}`);
+            console.log(`[lookupIpAddress] Looking up specific IP: ${ipToLookup}`);
             
-            // Determine if this is an unlimited request
-            const isUnlimited = req.originalUrl.includes('/unlimited/');
-            
-            // Call the rust-service with the specific IP and unlimited flag
-            result = await rustService.lookupIp(apiKey, ipToLookup, isUnlimited);
+            // Call the rust-service with the specific IP
+            result = await rustService.lookupIp(apiKey, ipToLookup);
         } else {
             // For /lookup/self, use the client's IP address
             if (!req.clientIp) {
@@ -89,39 +84,20 @@ export const lookupIpAddress = async (req: Request, res: Response) => {
             }
             
             const clientIp = req.clientIp;
-            console.log(`[Lookup] Looking up client IP: ${clientIp}`);
+            console.log(`[lookupIpAddress] Looking up client IP: ${clientIp}`);
             
-            // Determine if this is an unlimited request
-            const isUnlimited = req.originalUrl.includes('/unlimited/');
-            
-            // Call the rust-service with the client's IP and unlimited flag
-            result = await rustService.lookupSelf(apiKey, clientIp, clientIp, isUnlimited);
+            // Call the rust-service with the client's IP
+            result = await rustService.lookupSelf(apiKey, clientIp, clientIp);
         }
         
-        if (!result) {
-            throw new Error('No data returned from geolocation service');
-        }
+        console.log(`[lookupIpAddress] Successfully retrieved data for IP`);
         
         // Transform the response to match the frontend's expected format
         const transformedResult = transformLookupResponse(result, req.clientInfo);
         
-        // Return the transformed result to the client
         res.json(transformedResult);
-    } catch (error: any) {
-        console.error('Error in lookupIpAddress:', error);
-        
-        // If the error has a status code from rustService, use it
-        if (error.status) {
-            if (error.status === 401) {
-                throw new Unauthorized(error.message || 'Invalid API key');
-            } else if (error.status === 400) {
-                throw new BadRequest(error.message || 'Bad request');
-            } else if (error.status === 404) {
-                throw new Error('IP address not found');
-            }
-        }
-        
-        // Re-throw the error to be handled by the global error handler
-        throw error;
+    } catch (error) {
+        console.error(`[lookupIpAddress] Error during IP lookup:`, error);
+        throw error; // Let the global error handler handle it
     }
 };
