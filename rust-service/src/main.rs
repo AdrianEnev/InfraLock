@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::collections::HashSet;
 use std::time::Duration;
 use moka::sync::Cache;
 use tokio::net::TcpListener;
@@ -26,6 +27,15 @@ use crate::config::Settings;
 use crate::handlers::AppState;
 use crate::routes::{create_router, metrics::metrics_routes};
 use crate::services::background_updater::{BackgroundUpdater, BackgroundUpdaterConfig};
+
+fn parse_unlimited_api_keys() -> HashSet<String> {
+    std::env::var("UNLIMITED_API_KEYS")
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -68,6 +78,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         updater.start().await;
     });
     // --- End BackgroundUpdater configuration ---
+    
+    // Parse unlimited API keys from environment
+    let unlimited_api_keys = parse_unlimited_api_keys();
+    tracing::info!("Loaded {} unlimited API keys", unlimited_api_keys.len());
     
     // Clone the db_path to avoid moving settings
     let db_path = settings.resolve_db_path().unwrap_or_else(|e| {
@@ -112,9 +126,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         web_api_client: web_api_client.clone(),  // Clone here for AppState
     };
 
-    // Create auth state with a clone of web_api_client
+    // Create auth state with a clone of web_api_client and unlimited API keys
     let auth_state = Arc::new(ApiKeyAuthState {
         web_api_client: web_api_client.clone(),  // Clone here for ApiKeyAuthState
+        unlimited_api_keys,
     });
     
     // Create the main application router
