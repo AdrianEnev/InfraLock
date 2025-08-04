@@ -25,34 +25,7 @@ export const lookupSelfIpAddress = async (): Promise<IpLookupResult> => {
         return response;
     } catch (error) {
         console.error('[IP Lookup] API request failed:', error);
-        
-        // In production, rethrow the error to be handled by the error boundary
-        if (process.env.NODE_ENV === 'production') {
-            console.error('[IP Lookup] Running in production, propagating error to error boundary');
-            throw error;
-        }
-        
-        // For development, return mock data
-        const mockIp = '8.8.8.8';
-        console.warn(`[IP Lookup] Development mode: Using mock data with IP ${mockIp}`);
-        return {
-            ip: mockIp, // Default demo IP
-            country: 'United States',
-            city: 'Mountain View',
-            asnInfo: {
-                autonomous_system_number: 15169,
-                autonomous_system_organization: 'Google LLC'
-            },
-            isVpn: true,
-            isProxy: false,
-            isTor: false,
-            threatScore: 100,
-            threatDetails: ['IP is associated with a VPN or data center'],
-            recommendedAction: 'redirect',
-            latitude: 37.422,
-            longitude: -122.084,
-            proxyType: null
-        };
+        throw error;
     }
 };
 
@@ -80,32 +53,6 @@ export const lookupIpAddress = async (ip: string): Promise<IpLookupResult> => {
         return response;
     } catch (error) {
         console.error(`[IP Lookup] API request failed for IP ${ip}:`, error);
-        
-        // In production, rethrow the error to be handled by the error boundary
-        if (process.env.NODE_ENV === 'production') {
-            console.error('[IP Lookup] Running in production, propagating error to error boundary');
-            throw error;
-        }
-        
-        // For development, return mock data
-        console.warn(`[IP Lookup] Development mode: Using mock data for IP ${ip}`);
-        return {
-            ip: ip,
-            country: 'United States',
-            city: 'Mountain View',
-            asnInfo: {
-                autonomous_system_number: 15169,
-                autonomous_system_organization: 'Google LLC'
-            },
-            isVpn: true,
-            isProxy: false,
-            isTor: false,
-            threatScore: 100,
-            threatDetails: ['IP is associated with a VPN or data center'],
-            recommendedAction: 'monitor',
-            latitude: 37.422,
-            longitude: -122.084,
-            proxyType: null
-        };
+        throw error;
     }
 };

@@ -231,10 +231,10 @@ impl RadixTree {
         let v6_total = v6_len.0 + v6_len.1;  // Sum IPv4 and IPv6 counts from v6_table
         
         // Log detailed information about the tree sizes
-        debug!(
+        /*debug!(
             "Radix tree sizes - IPv4 entries: {}, IPv6 entries: {}, Total: {}",
             v4_total, v6_total, v4_total + v6_total
-        );
+        );*/
         
         // Log sample of IPv6 networks if any exist
         if v6_total > 0 {

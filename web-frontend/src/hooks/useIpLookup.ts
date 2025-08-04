@@ -16,30 +16,9 @@ export const useIpLookup = () => {
             const data = await lookupSelfIpAddress();
             setResult(data);
             return data;
-        } catch (err) {
-            const error = err as Error;
-            // For demo purposes, return mock data on error that matches IpLookupResult
-            const mockData: IpLookupResult = {
-                ip: '8.8.8.8',
-                country: 'United States',
-                city: 'Mountain View',
-                asnInfo: {
-                    autonomous_system_number: 15169,
-                    autonomous_system_organization: 'Google LLC'
-                },
-                isVpn: true,
-                isProxy: false,
-                isTor: false,
-                threatScore: 100,
-                threatDetails: ['Using demo data due to error'],
-                recommendedAction: 'monitor',
-                latitude: 37.422,
-                longitude: -122.084,
-                proxyType: null
-            };
-            setResult(mockData);
-            setError('Using demo data due to: ' + error.message);
-            return mockData;
+        } catch (error) {
+            console.error('[IP Lookup] API request failed:', error);
+            throw error;
         } finally {
             setIsLoading(false);
         }

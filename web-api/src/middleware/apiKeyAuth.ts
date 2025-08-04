@@ -9,12 +9,6 @@ const API_KEYS = new Set(
         .filter(Boolean)
 );
 
-// Add a default key in development if none provided
-/*if (process.env.NODE_ENV !== 'production' && API_KEYS.size === 0) {
-    API_KEYS.add('dev-unlimited-key');
-    console.warn('WARNING: Using default development API key. Set UNLIMITED_API_KEYS in production!');
-}*/
-
 /**
  * Middleware to validate API key from header or query parameter
  */

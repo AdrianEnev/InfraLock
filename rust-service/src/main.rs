@@ -8,7 +8,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 use dotenv::dotenv;
 
 use crate::clients::web_api::{WebApiClient, WebApiClientConfig};
-use crate::middleware::api_key_auth::{ApiKeyAuthState};
 
 mod alerting;
 mod clients;
@@ -125,15 +124,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ip_lookup_service,
         web_api_client: web_api_client.clone(),  // Clone here for AppState
     };
-
-    // Create auth state with a clone of web_api_client and unlimited API keys
-    let auth_state = Arc::new(ApiKeyAuthState {
-        web_api_client: web_api_client.clone(),  // Clone here for ApiKeyAuthState
-        unlimited_api_keys,
-    });
     
     // Create the main application router
-    let app = create_router(state, auth_state);
+    let app = create_router(state);
     
     // Create the metrics router
     let metrics_router = metrics_routes();
