@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::collections::HashSet;
 use std::time::Duration;
 use moka::sync::Cache;
 use tokio::net::TcpListener;
@@ -7,7 +8,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 use dotenv::dotenv;
 
 use crate::clients::web_api::{WebApiClient, WebApiClientConfig};
-use crate::middleware::api_key_auth::{ApiKeyAuthState};
 
 mod alerting;
 mod clients;
@@ -26,6 +26,15 @@ use crate::config::Settings;
 use crate::handlers::AppState;
 use crate::routes::{create_router, metrics::metrics_routes};
 use crate::services::background_updater::{BackgroundUpdater, BackgroundUpdaterConfig};
+
+fn parse_unlimited_api_keys() -> HashSet<String> {
+    std::env::var("UNLIMITED_API_KEYS")
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -69,6 +78,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     // --- End BackgroundUpdater configuration ---
     
+    // Parse unlimited API keys from environment
+    let unlimited_api_keys = parse_unlimited_api_keys();
+    tracing::info!("Loaded {} unlimited API keys", unlimited_api_keys.len());
+    
     // Clone the db_path to avoid moving settings
     let db_path = settings.resolve_db_path().unwrap_or_else(|e| {
         panic!("Failed to resolve database path: {}", e);
@@ -111,14 +124,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ip_lookup_service,
         web_api_client: web_api_client.clone(),  // Clone here for AppState
     };
-
-    // Create auth state with a clone of web_api_client
-    let auth_state = Arc::new(ApiKeyAuthState {
-        web_api_client: web_api_client.clone(),  // Clone here for ApiKeyAuthState
-    });
     
     // Create the main application router
-    let app = create_router(state, auth_state);
+    let app = create_router(state);
     
     // Create the metrics router
     let metrics_router = metrics_routes();

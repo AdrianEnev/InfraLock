@@ -38,18 +38,57 @@ export class RustServiceClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
+        const errorData = error.response?.data || {};
+        const errorMessage = errorData.message || error.message || 'Unknown error';
+        const errorStatus = error.response?.status || 500;
+        
         console.error('[RustService] Response Error:', {
-          status: error.response?.status,
+          status: errorStatus,
           statusText: error.response?.statusText,
-          data: error.response?.data,
+          message: errorMessage,
+          data: errorData,
         });
-        return Promise.reject(error);
+        
+        // Create a new error with the status code and message
+        const serviceError = new Error(errorMessage);
+        (serviceError as any).status = errorStatus;
+        (serviceError as any).data = errorData;
+        
+        return Promise.reject(serviceError);
       }
     );
   }
 
   /**
    * Look up IP address information from the rust-service
+   * @param apiKey The API key for authentication
+   * @param ip The IP address to look up (optional, defaults to client's IP)
+   * @returns Promise with IP lookup results
+   */
+  async lookupIp(
+    apiKey: string, 
+    ip?: string
+  ): Promise<LookupResponse> {
+    const config: AxiosRequestConfig = {
+      headers: {
+        'X-API-Key': apiKey,
+      },
+    };
+
+    const endpoint = ip ? `/api/lookup/${ip}` : '/api/lookup/self';
+    
+    console.log(`[RustService] Looking up IP: ${ip || 'self'}`);
+    
+    const response: AxiosResponse<LookupResponse> = await this.client.get(
+      endpoint,
+      config
+    );
+    
+    return response.data;
+  }
+
+  /**
+   * Look up the client's own IP address information from the rust-service
    * @param apiKey The API key for authentication
    * @param xForwardedFor The X-Forwarded-For header value (if behind a proxy)
    * @param xRealIp The X-Real-IP header value (alternative to X-Forwarded-For)
@@ -82,35 +121,13 @@ export class RustServiceClient {
       };
     }
 
+    console.log('[RustService] Looking up client IP');
+    
     const response: AxiosResponse<LookupResponse> = await this.client.get(
       '/api/lookup/self',
       config
     );
-
-    return response.data;
-  }
-
-  /**
-   * Look up a specific IP address from the rust-service
-   * @param apiKey The API key for authentication
-   * @param ip The IP address to look up
-   * @returns Promise with IP lookup results
-   */
-  async lookupIp(
-    apiKey: string, 
-    ip: string
-  ): Promise<LookupResponse> {
-    const config: AxiosRequestConfig = {
-      headers: {
-        'X-API-Key': apiKey,
-      },
-    };
-
-    const response: AxiosResponse<LookupResponse> = await this.client.get(
-      `/api/lookup/${ip}`,
-      config
-    );
-
+    
     return response.data;
   }
 }

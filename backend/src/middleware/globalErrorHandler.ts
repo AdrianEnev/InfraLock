@@ -15,7 +15,7 @@ export const globalErrorHandler = () => {
 
         if (err instanceof Unauthorized) {
             return buildErrorResponse(res, new ProblemDetails({
-                type: 'api/sign-in-unauthorized',
+                type: err.type || 'api/unauthorized',
                 title: 'Unauthorized',
                 status: 401,
                 detail: err.message

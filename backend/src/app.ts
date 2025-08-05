@@ -6,6 +6,7 @@ import userRoutes from './routes/user';
 import internalRoutes from './routes/internal';
 import healthRoutes from './routes/health';
 import lookupRoutes from './routes/lookup';
+import unlimitedRoutes from './routes/unlimited';
 import { globalErrorHandler } from './middleware/globalErrorHandler';
 import { cache } from './utils/redis';
 
@@ -62,6 +63,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 // API routes
 app.use('/api/users', userRoutes);
 app.use('/api/lookup', lookupRoutes);
+app.use('/unlimited', unlimitedRoutes);
 app.use('/internal', internalRoutes);
 
 // Health check routes

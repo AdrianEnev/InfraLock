@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::collections::HashSet;
 use axum::{
     http::{Request, StatusCode},
     middleware::Next,
@@ -57,6 +58,7 @@ pub struct AuthenticatedUser {
 #[derive(Debug, Clone)]
 pub struct ApiKeyAuthState {
     pub web_api_client: Arc<WebApiClient>,
+    pub unlimited_api_keys: HashSet<String>,
 }
 
 pub async fn api_key_auth(
@@ -76,23 +78,38 @@ pub async fn api_key_auth(
 
     info!("Validating API key (first 8 chars: {}...)", &api_key[..api_key.len().min(8)]);
 
-    // Validate API key with web-api
-    let validation = state.web_api_client
-        .validate_api_key(&api_key)
-        .await
-        .map_err(|e| {
-            let error_msg = e.to_string();
-            match e {
-                WebApiError::ValidationError(_) => {
-                    warn!("Invalid API key provided");
-                    (StatusCode::UNAUTHORIZED, "Invalid API key".to_string())
-                },
-                WebApiError::RequestError(_) | WebApiError::ServiceUnavailable(_) | WebApiError::ResilientClientError(_) => {
-                    error!("Service unavailable during API key validation: {}", error_msg);
-                    (StatusCode::SERVICE_UNAVAILABLE, "Service unavailable".to_string())
+    // Check if the provided key is an unlimited key
+    let is_unlimited_key = state.unlimited_api_keys.contains(&api_key);
+    
+    // If it's not an unlimited key, validate it with the web API
+    let validation = if is_unlimited_key {
+        info!("Unlimited API key detected, bypassing regular validation");
+        // Create a validation response with default values for unlimited keys
+        crate::clients::web_api::ApiKeyValidationResponse {
+            valid: true,
+            user_id: None,
+            email: Some("unlimited@example.com".to_string()),
+            role: Some("unlimited".to_string()),
+        }
+    } else {
+        // Validate API key with web-api
+        state.web_api_client
+            .validate_api_key(&api_key)
+            .await
+            .map_err(|e| {
+                let error_msg = e.to_string();
+                match e {
+                    WebApiError::ValidationError(_) => {
+                        warn!("Invalid API key provided");
+                        (StatusCode::UNAUTHORIZED, "Invalid API key".to_string())
+                    },
+                    WebApiError::RequestError(_) | WebApiError::ServiceUnavailable(_) | WebApiError::ResilientClientError(_) => {
+                        error!("Service unavailable during API key validation: {}", error_msg);
+                        (StatusCode::SERVICE_UNAVAILABLE, "Service unavailable".to_string())
+                    }
                 }
-            }
-        })?;
+            })?
+    };
 
     if !validation.valid {
         warn!("API key validation returned invalid status");

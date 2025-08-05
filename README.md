@@ -3,7 +3,7 @@
 A comprehensive geolocation solution consisting of three main components:
 
 1. **rust-service**: High-performance geolocation service built with Rust
-2. **web-api**: REST API layer that interfaces with the rust-service
+2. **backend**: REST API layer that interfaces with the rust-service
 3. **web-frontend**: User interface for interacting with the geolocation service
 
 ## Project Structure
@@ -11,7 +11,7 @@ A comprehensive geolocation solution consisting of three main components:
 ```
 geolocation/
 ├── rust-service/    # Core geolocation service (Rust)
-├── web-api/         # Web API layer (Node.js/Express)
+├── backend/         # Backend API layer (Node.js/Express)
 └── web-frontend/    # Web interface (React/Vue/Next.js)
 ```
 
@@ -47,9 +47,9 @@ docker-compose up -d
 
 See [rust-service/README.md](rust-service/README.md) for detailed setup instructions.
 
-### 2. web-api
+### 2. backend
 
-See [web-api/README.md](web-api/README.md) for detailed setup instructions.
+See [backend/README.md](backend/README.md) for detailed setup instructions.
 
 ### 3. web-frontend
 
@@ -70,7 +70,7 @@ Configuration is handled through environment variables. Copy `.env.example` to `
 Each component has its own configuration. Please refer to the respective README files:
 
 - [rust-service configuration](rust-service/README.md#configuration)
-- [web-api configuration](web-api/README.md#configuration)
+- [backend configuration](backend/README.md#configuration)
 - [web-frontend configuration](web-frontend/README.md#configuration)
 
 ## Development
@@ -83,9 +83,9 @@ Each component has its own configuration. Please refer to the respective README 
    cargo run --release
    ```
 
-2. Start web-api:
+2. Start backend:
    ```bash
-   cd web-api
+   cd backend
    npm install
    npm start
    ```
@@ -193,3 +193,7 @@ X-Forwarded-For: 203.0.113.1, 198.51.100.1
 ### License
 
 MIT
+
+### Note
+
+Parts of the documentation files might be outdated. Please refer to the source code for the most up-to-date information.
