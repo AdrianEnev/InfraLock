@@ -22,8 +22,8 @@ export class GeolocationClient {
     
     this.config = {
       apiKey: config.apiKey,
-      baseUrl: 'https://api.geolocation.com',
-      //baseUrl: (config.baseUrl || 'https://api.geolocation.com').replace(/\/+$/, ''),
+      // Allow overriding baseUrl; default to production URL. Strip trailing slashes.
+      baseUrl: (config.baseUrl || 'https://api.geolocation.com').replace(/\/+$/, ''),
       timeout: config.timeout,
       maxRetries: config.maxRetries,
       headers: config.headers,
@@ -49,7 +49,8 @@ export class GeolocationClient {
         throw new ValidationError('Invalid IP address format', 'ip');
       }
 
-      const endpoint = ip ? `/lookup?ip=${encodeURIComponent(ip)}` : '/lookup';
+      // Align with backend routes mounted under /api/lookup
+      const endpoint = ip ? `/api/lookup/${encodeURIComponent(ip)}` : '/api/lookup';
       
       return await makeRequest<LookupResponse>(endpoint, this.config);
     } catch (error) {

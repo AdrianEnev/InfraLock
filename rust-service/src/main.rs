@@ -7,7 +7,10 @@ use tokio::sync::RwLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use dotenv::dotenv;
 
-use crate::clients::web_api::{WebApiClient, WebApiClientConfig};
+use crate::config::Settings;
+use crate::handlers::AppState;
+use crate::routes::{create_router, metrics::metrics_routes};
+use crate::services::background_updater::{BackgroundUpdater, BackgroundUpdaterConfig};
 
 mod alerting;
 mod clients;
@@ -21,20 +24,6 @@ mod monitoring;
 mod routes;
 mod services;
 mod utils;
-
-use crate::config::Settings;
-use crate::handlers::AppState;
-use crate::routes::{create_router, metrics::metrics_routes};
-use crate::services::background_updater::{BackgroundUpdater, BackgroundUpdaterConfig};
-
-fn parse_unlimited_api_keys() -> HashSet<String> {
-    std::env::var("UNLIMITED_API_KEYS")
-        .unwrap_or_default()
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -78,10 +67,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     // --- End BackgroundUpdater configuration ---
     
-    // Parse unlimited API keys from environment
-    let unlimited_api_keys = parse_unlimited_api_keys();
-    tracing::info!("Loaded {} unlimited API keys", unlimited_api_keys.len());
-    
     // Clone the db_path to avoid moving settings
     let db_path = settings.resolve_db_path().unwrap_or_else(|e| {
         panic!("Failed to resolve database path: {}", e);
@@ -98,10 +83,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ip_lookup_config = ip_lookup::default_config()?;
     let ip_lookup_service = Arc::new(ip_lookup::IpLookupService::new(ip_lookup_config));
     ip_lookup_service.start_background_updates();
-
-    // Initialize Web API client for API key validation
-    let web_api_config = WebApiClientConfig::default();
-    let web_api_client = Arc::new(WebApiClient::new(web_api_config));
 
     // In main.rs
     let ttl_seconds = std::env::var("CACHE_TTL_SECONDS")
@@ -122,7 +103,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         asn_reader: Arc::new(RwLock::new(asn_reader)),
         lookup_cache,
         ip_lookup_service,
-        web_api_client: web_api_client.clone(),  // Clone here for AppState
     };
     
     // Create the main application router

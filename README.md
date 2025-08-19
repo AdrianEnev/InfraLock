@@ -17,29 +17,11 @@ geolocation/
 
 ## Prerequisites
 
-- Docker and Docker Compose (recommended)
-- Node.js 16+ (for web-api and web-frontend)
+- Node.js 18+ (for backend and web-frontend)
 - Rust (latest stable version, for rust-service development)
 - MaxMind GeoLite2 City database (MMDB format)
 - VPN/Datacenter IP database (text file with CIDR ranges)
 - Proxy IP lists (text files with IP:PORT format)
-
-## Quick Start with Docker
-
-The easiest way to get started is using Docker Compose:
-
-```bash
-# Clone the repository
-git clone <repository-url>
-cd geolocation
-
-# Copy and configure environment variables
-cp .env.example .env
-# Edit .env with your configuration
-
-# Start all services
-docker-compose up -d
-```
 
 ## Manual Setup
 
@@ -196,4 +178,4 @@ MIT
 
 ### Note
 
-Parts of the documentation files might be outdated. Please refer to the source code for the most up-to-date information.
+Docker Compose references were removed. Run services via cargo/npm as shown above.

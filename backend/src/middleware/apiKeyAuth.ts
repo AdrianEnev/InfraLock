@@ -10,7 +10,12 @@ const UNLIMITED_API_KEYS = new Set(
 );
 
 // This would be replaced with a database check in production
-const VALID_API_KEYS = new Set<string>();
+const VALID_API_KEYS = new Set<string>(
+    (process.env.VALID_API_KEYS || '')
+        .split(',')
+        .map(key => key.trim())
+        .filter(Boolean)
+);
 
 /**
  * Middleware to validate regular API keys (with rate limiting)

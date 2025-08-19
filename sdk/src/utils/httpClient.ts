@@ -1,3 +1,5 @@
+import 'cross-fetch/polyfill';
+
 import { ApiError, NetworkError } from '../errors/index.js';
 
 export interface HttpClientOptions {

@@ -9,6 +9,7 @@ function AccountPage() {
     const [accountInfo, setAccountInfo] = useState<UserAccountInfo | null>(null);
     const fetchAccountInfo = async () => {
         const accountInfo = await getUserAccountInfo() as UserAccountInfo;
+        console.log(accountInfo)
         setAccountInfo(accountInfo);
     }
     useEffect(() => {

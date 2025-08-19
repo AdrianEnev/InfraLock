@@ -23,7 +23,8 @@ use percent_encoding::{percent_decode_str};
 use crate::models::threat_score::ThreatScore;
 use crate::ip_lookup::IpLookupService;
 use moka::sync::Cache;
-use crate::clients::web_api::WebApiClient;
+
+// Removed WebApiClient dependency; rust-service no longer performs API key validation
 
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -31,7 +32,6 @@ pub struct AppState {
     pub asn_reader: Arc<RwLock<maxminddb::Reader<Vec<u8>>>>, // ASN DB reader
     pub lookup_cache: Arc<Cache<IpAddr, LookupResponse>>,
     pub ip_lookup_service: Arc<IpLookupService>,
-    pub web_api_client: Arc<WebApiClient>,
 }
 
 #[derive(Debug, Serialize, Clone)]

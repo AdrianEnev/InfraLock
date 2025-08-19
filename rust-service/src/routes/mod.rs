@@ -1,10 +1,7 @@
 pub mod metrics;
 
 use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, post},
+    routing::get,
     Router,
 };
 use std::sync::Arc;
@@ -31,21 +28,9 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/vpn/{ip_or_range}", get(handlers::is_vpn_or_datacenter))
         .route("/api/proxy/{ip_or_range}", get(handlers::is_proxy));
 
-    // Debug routes
-    let debug_routes = Router::new()
-        .route("/debug/reset-circuit-breaker", post(reset_circuit_breaker));
-
     // Combine all routes with the shared state
     public_routes
         .merge(protected_routes)
-        .merge(debug_routes)
         .with_state(shared_state)
         .layer(TraceLayer::new_for_http())
-}
-
-async fn reset_circuit_breaker(
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    state.web_api_client.reset_circuit_breaker().await;
-    (StatusCode::OK, "Circuit breaker reset")
 }
